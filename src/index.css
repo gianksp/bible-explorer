@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+[dir="rtl"] {
+  direction: rtl;
+}
+
+.dir-rtl {
+  direction: rtl;
+}
