@@ -1,42 +1,44 @@
 // Props:
-//   book           — string
-//   chapter        — number
+//   label          — string — what to show (e.g. "Genesis 1", "sons of god", "Search")
 //   versionId      — string
 //   activeMode     — 'reader' | 'verse'
 //   onOpenDropdown — fn()
 //   onSelectMode   — fn(mode)
 
 export default function TopBar({
-    book,
-    chapter,
+    label,
     versionId,
     activeMode,
     onOpenDropdown,
     onSelectMode,
 }) {
-    const passageLabel = `${book} ${chapter}`
-
     return (
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 shrink-0">
-            <div className="flex" />
+            {/* Left spacer to balance the right toggle */}
+            <div className="w-[120px] shrink-0" />
+
+            {/* Centered label + version */}
             <button
                 onClick={onOpenDropdown}
-                className="flex items-center gap-2 group"
+                className="flex items-center gap-1.5 group"
             >
-                <span className="text-base font-medium text-gray-900 group-hover:text-gray-600 transition-colors">
-                    {passageLabel}
+                <span className="text-sm font-medium text-gray-900 group-hover:text-gray-500 transition-colors truncate max-w-[180px] md:max-w-sm">
+                    {label}
                 </span>
-                <span className="text-xs text-gray-400 group-hover:text-gray-600 transition-colors">
-                    {versionId}
-                </span>
-                <span className="text-gray-300 text-sm">▾</span>
+                {versionId && (
+                    <span className="text-sm text-gray-400 group-hover:text-gray-500 transition-colors shrink-0">
+                        {versionId}
+                    </span>
+                )}
+                <span className="text-gray-300 text-xs shrink-0">▾</span>
             </button>
 
-            <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+            {/* Mode toggle — right side */}
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden shrink-0 w-[120px] justify-end">
                 {[
                     { modeId: 'reader', label: 'Reader' },
                     { modeId: 'verse', label: 'Verse' },
-                ].map(({ modeId, label }) => (
+                ].map(({ modeId, label: modeLabel }) => (
                     <button
                         key={modeId}
                         onClick={() => onSelectMode(modeId)}
@@ -47,7 +49,7 @@ export default function TopBar({
                                 : 'bg-white text-gray-500 hover:bg-gray-50'}
             `}
                     >
-                        {label}
+                        {modeLabel}
                     </button>
                 ))}
             </div>

@@ -26,22 +26,26 @@ export default function BibleReader() {
     const [selectedChapter, setSelectedChapter] = useState(
         parseInt(searchParams.get('chapter') ?? DEFAULT_CHAPTER)
     )
-    const [activeVersionId, setActiveVersionId] = useState(DEFAULT_VERSION_ID)
-    const [activeMode, setActiveMode] = useState(DEFAULT_MODE)
-    const [dropdownOpen, setDropdownOpen] = useState(false)
-
-    // Sync URL params when navigating from search results
     const [selectedVerse, setSelectedVerse] = useState(
         parseInt(searchParams.get('verse') ?? '0') || null
     )
+    const [activeVersionId, setActiveVersionId] = useState(DEFAULT_VERSION_ID)
+    const [activeMode, setActiveMode] = useState(
+        searchParams.get('mode') ?? DEFAULT_MODE
+    )
+    const [dropdownOpen, setDropdownOpen] = useState(false)
 
+    // Sync URL params when navigating from search results
     useEffect(() => {
         const book = searchParams.get('book')
         const chapter = searchParams.get('chapter')
         const verse = searchParams.get('verse')
+        const mode = searchParams.get('mode')
         if (book) setSelectedBook(book)
         if (chapter) setSelectedChapter(parseInt(chapter))
         if (verse) setSelectedVerse(parseInt(verse))
+        else setSelectedVerse(null)
+        if (mode) setActiveMode(mode)
     }, [searchParams])
 
     // ── Data ───────────────────────────────────────────────────────────────────
@@ -57,6 +61,7 @@ export default function BibleReader() {
     function handleSelectPassage({ book, chapter }) {
         setSelectedBook(book)
         setSelectedChapter(chapter ?? 1)
+        setSelectedVerse(null)
     }
 
     function handleSearch(rawQuery) {
@@ -65,19 +70,20 @@ export default function BibleReader() {
 
     function handlePrevChapter() {
         setSelectedChapter(prev => Math.max(1, prev - 1))
+        setSelectedVerse(null)
     }
 
     function handleNextChapter() {
         const total = CHAPTER_COUNTS[selectedBook] ?? 1
         setSelectedChapter(prev => Math.min(total, prev + 1))
+        setSelectedVerse(null)
     }
 
     // ── Render ─────────────────────────────────────────────────────────────────
     return (
         <div className="flex flex-col h-screen bg-white overflow-hidden relative">
             <TopBar
-                book={selectedBook}
-                chapter={selectedChapter}
+                label={`${selectedBook} ${selectedChapter}`}
                 versionId={activeVersionId}
                 activeMode={activeMode}
                 onOpenDropdown={() => setDropdownOpen(true)}
