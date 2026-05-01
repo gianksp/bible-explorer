@@ -18,8 +18,8 @@ export default function SearchResults() {
         activeVersionIds: ['KJV'],
     })
 
-    function handleSelectVerse({ book, chapter }) {
-        navigate(`/?book=${encodeURIComponent(book)}&chapter=${chapter}`)
+    function handleSelectVerse({ book, chapter, verse }) {
+        navigate(`/?book=${encodeURIComponent(book)}&chapter=${chapter}&verse=${verse}`)
     }
 
     function handleSearch(newQuery) {

@@ -46,12 +46,16 @@ export default function PassageDropdown({
         const parsed = parseSearch(rawQuery)
 
         if (parsed?.type === 'passage') {
-            onSelectPassage({ book: parsed.book, chapter: parsed.chapter ?? 1 })
+            // Single passage with no specific verse — navigate directly
+            if (!parsed.verseStart) {
+                onSelectPassage({ book: parsed.book, chapter: parsed.chapter ?? 1 })
+            } else {
+                // Has a specific verse — go to search so the verse is highlighted
+                onSearch(rawQuery)
+            }
         } else if (parsed?.type === 'multi-passage') {
-            // Navigate to first passage, let search page show the rest
-            const first = parsed.passages[0]
-            if (first?.book) onSelectPassage({ book: first.book, chapter: first.chapter ?? 1 })
-            else onSearch(rawQuery)
+            // Always send to search results
+            onSearch(rawQuery)
         } else {
             onSearch(rawQuery)
         }

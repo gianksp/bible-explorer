@@ -25,6 +25,13 @@ const NEW_TESTAMENT_BOOKS = [
     'Jude', 'Revelation',
 ]
 
+const APOCRYPHA_BOOKS = [
+    '1 Esdras', '2 Esdras', 'Tobit', 'Judith',
+    'Additions to Esther', 'Wisdom', 'Sirach', 'Baruch',
+    'Prayer of Azariah', 'Susanna', 'Bel and the Dragon',
+    'Prayer of Manasses', '1 Maccabees', '2 Maccabees',
+]
+
 // Chapter counts per book — used to render chapter picker
 export const CHAPTER_COUNTS = {
     Genesis: 50, Exodus: 40, Leviticus: 27, Numbers: 36, Deuteronomy: 34,
@@ -35,6 +42,11 @@ export const CHAPTER_COUNTS = {
     Lamentations: 5, Ezekiel: 48, Daniel: 12, Hosea: 14, Joel: 3, Amos: 9,
     Obadiah: 1, Jonah: 4, Micah: 7, Nahum: 3, Habakkuk: 3, Zephaniah: 3,
     Haggai: 2, Zechariah: 14, Malachi: 4,
+    // In CHAPTER_COUNTS:
+    '1 Esdras': 9, '2 Esdras': 16, 'Tobit': 14, 'Judith': 16,
+    'Additions to Esther': 16, 'Wisdom': 19, 'Sirach': 51, 'Baruch': 6,
+    'Prayer of Azariah': 1, 'Susanna': 1, 'Bel and the Dragon': 1,
+    'Prayer of Manasses': 1, '1 Maccabees': 16, '2 Maccabees': 15,
     Matthew: 28, Mark: 16, Luke: 24, John: 21, Acts: 28,
     Romans: 16, '1 Corinthians': 16, '2 Corinthians': 13, Galatians: 6,
     Ephesians: 6, Philippians: 4, Colossians: 4,

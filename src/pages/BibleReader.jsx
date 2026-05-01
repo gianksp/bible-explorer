@@ -31,11 +31,17 @@ export default function BibleReader() {
     const [dropdownOpen, setDropdownOpen] = useState(false)
 
     // Sync URL params when navigating from search results
+    const [selectedVerse, setSelectedVerse] = useState(
+        parseInt(searchParams.get('verse') ?? '0') || null
+    )
+
     useEffect(() => {
         const book = searchParams.get('book')
         const chapter = searchParams.get('chapter')
+        const verse = searchParams.get('verse')
         if (book) setSelectedBook(book)
         if (chapter) setSelectedChapter(parseInt(chapter))
+        if (verse) setSelectedVerse(parseInt(verse))
     }, [searchParams])
 
     // ── Data ───────────────────────────────────────────────────────────────────
@@ -113,6 +119,7 @@ export default function BibleReader() {
                             <VerseByVerseView
                                 verses={verses}
                                 versionId={activeVersionId}
+                                highlightVerse={selectedVerse}
                             />
                         )}
                     </>

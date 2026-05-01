@@ -67,6 +67,21 @@ const BOOKS = [
     { id: 'Hag', name: 'Haggai', testament: 'OT', chapters: 2 },
     { id: 'Zech', name: 'Zechariah', testament: 'OT', chapters: 14 },
     { id: 'Mal', name: 'Malachi', testament: 'OT', chapters: 4 },
+    // Apocrypha — between OT and NT
+    { id: '1Esd', name: '1 Esdras', testament: 'OT', chapters: 9 },
+    { id: '2Esd', name: '2 Esdras', testament: 'OT', chapters: 16 },
+    { id: 'Tob', name: 'Tobit', testament: 'OT', chapters: 14 },
+    { id: 'Jdt', name: 'Judith', testament: 'OT', chapters: 16 },
+    { id: 'AddEst', name: 'Additions to Esther', testament: 'OT', chapters: 16 },
+    { id: 'Wis', name: 'Wisdom', testament: 'OT', chapters: 19 },
+    { id: 'Sir', name: 'Sirach', testament: 'OT', chapters: 51 },
+    { id: 'Bar', name: 'Baruch', testament: 'OT', chapters: 6 },
+    { id: 'PrAzar', name: 'Prayer of Azariah', testament: 'OT', chapters: 1 },
+    { id: 'Sus', name: 'Susanna', testament: 'OT', chapters: 1 },
+    { id: 'Bel', name: 'Bel and the Dragon', testament: 'OT', chapters: 1 },
+    { id: 'PrMan', name: 'Prayer of Manasses', testament: 'OT', chapters: 1 },
+    { id: '1Macc', name: '1 Maccabees', testament: 'OT', chapters: 16 },
+    { id: '2Macc', name: '2 Maccabees', testament: 'OT', chapters: 15 },
     { id: 'Matt', name: 'Matthew', testament: 'NT', chapters: 28 },
     { id: 'Mark', name: 'Mark', testament: 'NT', chapters: 16 },
     { id: 'Luke', name: 'Luke', testament: 'NT', chapters: 24 },
@@ -98,22 +113,74 @@ const BOOKS = [
 
 const NAME_TO_ID = Object.fromEntries(BOOKS.map(b => [b.name, b.id]))
 
+// Additional aliases for KJVA Roman numeral format and alternate names
+const KJVA_NAME_ALIASES = {
+    // Roman numeral NT books
+    'I Samuel': '1Sam', 'II Samuel': '2Sam',
+    'I Kings': '1Kgs', 'II Kings': '2Kgs',
+    'I Chronicles': '1Chr', 'II Chronicles': '2Chr',
+    'I Corinthians': '1Cor', 'II Corinthians': '2Cor',
+    'I Thessalonians': '1Th', 'II Thessalonians': '2Th',
+    'I Timothy': '1Tim', 'II Timothy': '2Tim',
+    'I Peter': '1Pet', 'II Peter': '2Pet',
+    'I John': '1Jn', 'II John': '2Jn', 'III John': '3Jn',
+    'Revelation of John': 'Rev',
+    // Apocrypha — map to our IDs
+    'I Esdras': '1Esd', 'II Esdras': '2Esd',
+    'Tobit': 'Tob', 'Judith': 'Jdt',
+    'Additions to Esther': 'AddEst',
+    'Wisdom': 'Wis', 'Sirach': 'Sir', 'Baruch': 'Bar',
+    'Prayer of Azariah': 'PrAzar', 'Susanna': 'Sus',
+    'Bel and the Dragon': 'Bel',
+    'Prayer of Manasses': 'PrMan',
+    'I Maccabees': '1Macc', 'II Maccabees': '2Macc',
+}
+
+// Remove APOCRYPHA_NAMES set entirely — we want to include them now
+
+// Merge aliases into NAME_TO_ID
+Object.assign(NAME_TO_ID, Object.fromEntries(
+    Object.entries(KJVA_NAME_ALIASES).filter(([, v]) => v !== null)
+))
+
+// Set of apocrypha names to skip
+const APOCRYPHA_NAMES = new Set(
+    Object.entries(KJVA_NAME_ALIASES).filter(([, v]) => v === null).map(([k]) => k)
+)
+
 // STEPBible uses 3-letter abbreviations — map to our book IDs
+// Replace STEP_TO_ID with these correct STEPBible abbreviations:
 const STEP_TO_ID = {
+    // OT — STEPBible abbreviations
     'Gen': 'Gen', 'Exo': 'Ex', 'Lev': 'Lev', 'Num': 'Num', 'Deu': 'Deut',
-    'Jos': 'Josh', 'Jdg': 'Judg', 'Rut': 'Ruth', '1Sa': '1Sam', '2Sa': '2Sam',
-    '1Ki': '1Kgs', '2Ki': '2Kgs', '1Ch': '1Chr', '2Ch': '2Chr',
+    'Jos': 'Josh', 'Jdg': 'Judg', 'Rut': 'Ruth',
+    '1Sa': '1Sam', '2Sa': '2Sam',
+    '1Ki': '1Kgs', '2Ki': '2Kgs',
+    '1Ch': '1Chr', '2Ch': '2Chr',
     'Ezr': 'Ezra', 'Neh': 'Neh', 'Est': 'Esth', 'Job': 'Job', 'Psa': 'Ps',
     'Pro': 'Prov', 'Ecc': 'Eccl', 'Sng': 'Song', 'Isa': 'Isa', 'Jer': 'Jer',
     'Lam': 'Lam', 'Eze': 'Ezek', 'Dan': 'Dan', 'Hos': 'Hos', 'Joe': 'Joel',
     'Amo': 'Amos', 'Oba': 'Obad', 'Jon': 'Jonah', 'Mic': 'Mic', 'Nah': 'Nah',
     'Hab': 'Hab', 'Zep': 'Zeph', 'Hag': 'Hag', 'Zec': 'Zech', 'Mal': 'Mal',
+
+    // NT — STEPBible abbreviations (short 3-char forms)
     'Mat': 'Matt', 'Mrk': 'Mark', 'Luk': 'Luke', 'Jhn': 'John', 'Act': 'Acts',
-    'Rom': 'Rom', '1Co': '1Cor', '2Co': '2Cor', 'Gal': 'Gal', 'Eph': 'Eph',
-    'Php': 'Phil', 'Col': 'Col', '1Th': '1Th', '2Th': '2Th', '1Ti': '1Tim',
-    '2Ti': '2Tim', 'Tit': 'Titus', 'Phm': 'Phlm', 'Heb': 'Heb', 'Jas': 'Jas',
-    '1Pe': '1Pet', '2Pe': '2Pet', '1Jn': '1Jn', '2Jn': '2Jn', '3Jn': '3Jn',
+    'Rom': 'Rom',
+    '1Co': '1Cor', '2Co': '2Cor',
+    'Gal': 'Gal', 'Eph': 'Eph', 'Php': 'Phil', 'Col': 'Col',
+    '1Th': '1Th', '2Th': '2Th',
+    '1Ti': '1Tim', '2Ti': '2Tim',
+    'Tit': 'Titus', 'Phm': 'Phlm', 'Heb': 'Heb', 'Jas': 'Jas',
+    '1Pe': '1Pet', '2Pe': '2Pet',
+    '1Jn': '1Jn', '2Jn': '2Jn', '3Jn': '3Jn',
     'Jud': 'Jude', 'Rev': 'Rev',
+
+    // Full names that appear in some STEPBible lines
+    'John': 'John', 'Acts': 'Acts', 'Romans': 'Rom', 'Galatians': 'Gal',
+    'Ephesians': 'Eph', 'Philippians': 'Phil', 'Colossians': 'Col',
+    'Hebrews': 'Heb', 'James': 'Jas', 'Jude': 'Jude', 'Revelation': 'Rev',
+    'Titus': 'Titus', 'Philemon': 'Phlm', 'Mark': 'Mark', 'Luke': 'Luke',
+    'Matthew': 'Matt',
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -236,7 +303,8 @@ function parseStepLine(line) {
 
         const wordCol = cols[1]?.trim() ?? ''
         const transitMatch = wordCol.match(/^(.+?)\s*\(([^)]+)\)/)
-        surface = transitMatch ? transitMatch[1].trim() : wordCol.split(' ')[0]
+        surface = surface = (transitMatch ? transitMatch[1].trim() : wordCol.split(' ')[0])
+            .replace(/¶/g, '').trim()
         transliteration = transitMatch ? transitMatch[2].trim() : ''
         englishGloss = (cols[2]?.trim() ?? '').replace(/[\[\]]/g, '').trim()
 
@@ -261,7 +329,7 @@ function processStepFile(filePath, wordsMap, greekDict, hebrewDict) {
 
     for (const line of lines) {
         // Skip header lines — data lines start with a book abbreviation
-        if (!line.match(/^[A-Z][a-z]{2}\./)) continue
+        if (!line.match(/^[0-9]?[A-Z][a-zA-Z]{1,3}\./)) continue
 
         const word = parseStepLine(line)
         if (!word) continue
@@ -295,7 +363,8 @@ const kjv = {}
 
 for (const book of kjvaRaw.books) {
     const bookId = NAME_TO_ID[book.name]
-    if (!bookId) { console.warn(`  skip: ${book.name}`); continue }
+    if (APOCRYPHA_NAMES.has(book.name)) continue  // skip apocrypha silently
+    if (!bookId) { console.warn(`  skip unknown: ${book.name}`); continue }
     for (const chapter of book.chapters) {
         for (const verse of chapter.verses) {
             const clean = verse.text.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
@@ -350,30 +419,31 @@ console.log(`  ${Object.keys(hebrewDict).length} entries`)
 
 console.log('\n[4/5] TAGNT Greek NT...')
 const gntWords = {}
-
+// WITH THIS:
 try {
     const tagntFiles = [
         findFile(STEPBIBLE, 'TAGNT Mat-Jhn'),
         findFile(STEPBIBLE, 'TAGNT Act-Rev'),
     ]
-
     for (const file of tagntFiles) {
         console.log(`  processing ${path.basename(file)}`)
         processStepFile(file, gntWords, greekDict, hebrewDict)
     }
-
-    write('gnt-words.json', gntWords)
     console.log(`  ${Object.keys(gntWords).length} verses`)
 } catch (e) {
-    console.warn(`  TAGNT error: ${e.message}`)
-    write('gnt-words.json', {})
+    console.error(`  TAGNT processing error: ${e.message}`)
+    console.error(e.stack)
 }
+
+// Write outside try/catch — if this fails you'll see the real error
+write('gnt-words.json', gntWords)
 
 // ── 5. TAHOT — Hebrew OT ─────────────────────────────────────────────────────
 
 console.log('\n[5/5] TAHOT Hebrew OT...')
 const otWords = {}
 
+// WITH:
 try {
     const tahotFiles = [
         findFile(STEPBIBLE, 'TAHOT Gen-Deu'),
@@ -381,18 +451,17 @@ try {
         findFile(STEPBIBLE, 'TAHOT Job-Sng'),
         findFile(STEPBIBLE, 'TAHOT Isa-Mal'),
     ]
-
     for (const file of tahotFiles) {
         console.log(`  processing ${path.basename(file)}`)
         processStepFile(file, otWords, greekDict, hebrewDict)
     }
-
-    write('ot-words.json', otWords)
     console.log(`  ${Object.keys(otWords).length} verses`)
 } catch (e) {
-    console.warn(`  TAHOT error: ${e.message}`)
-    write('ot-words.json', {})
+    console.error(`  TAHOT processing error: ${e.message}`)
+    console.error(e.stack)
 }
+
+write('ot-words.json', otWords)
 
 // ── Chapter index ─────────────────────────────────────────────────────────────
 

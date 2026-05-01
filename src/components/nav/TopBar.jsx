@@ -18,6 +18,7 @@ export default function TopBar({
 
     return (
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 shrink-0">
+            <div className="flex" />
             <button
                 onClick={onOpenDropdown}
                 className="flex items-center gap-2 group"

@@ -23,7 +23,7 @@ export const EnglishWithHighlight = ({ text, hoveredStrongsNumber, originalWords
           gloss.split(/\s+/).some(glossWord => clean === glossWord)
         )
         return isMatch
-          ? <mark key={i} className="bg-amber-100 text-amber-900 rounded-sm px-0.5">{part}</mark>
+          ? <mark key={i} className="bg-amber-100 text-amber-900">{part}</mark>
           : <span key={i}>{part}</span>
       })}
     </>

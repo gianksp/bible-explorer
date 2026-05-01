@@ -19,6 +19,12 @@ const NEW_TESTAMENT_BOOKS = [
     'Jude', 'Revelation',
 ]
 
+const APOCRYPHA_BOOKS = [
+    '1 Esdras', '2 Esdras', 'Tobit', 'Judith',
+    'Additions to Esther', 'Wisdom', 'Sirach', 'Baruch',
+    'Prayer of Azariah', 'Susanna', 'Bel and the Dragon',
+    'Prayer of Manasses', '1 Maccabees', '2 Maccabees',
+]
 // Props:
 //   selectedBook  — string | null
 //   onSelectBook  — fn(book)
@@ -29,6 +35,12 @@ export default function BookGrid({ selectedBook, onSelectBook }) {
             <BookSection
                 label="Old Testament"
                 books={OLD_TESTAMENT_BOOKS}
+                selectedBook={selectedBook}
+                onSelectBook={onSelectBook}
+            />
+            <BookSection
+                label="Apocrypha"
+                books={APOCRYPHA_BOOKS}
                 selectedBook={selectedBook}
                 onSelectBook={onSelectBook}
             />

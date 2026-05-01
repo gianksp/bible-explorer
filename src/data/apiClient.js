@@ -29,6 +29,14 @@ const BOOK_NAME_TO_ID = {
     'Esther': 'Esth', 'Job': 'Job', 'Psalms': 'Ps', 'Proverbs': 'Prov',
     'Ecclesiastes': 'Eccl', 'Song of Solomon': 'Song', 'Isaiah': 'Isa',
     'Jeremiah': 'Jer', 'Lamentations': 'Lam', 'Ezekiel': 'Ezek', 'Daniel': 'Dan',
+    '1 Esdras': '1Esd', '2 Esdras': '2Esd',
+    'Tobit': 'Tob', 'Judith': 'Jdt',
+    'Additions to Esther': 'AddEst',
+    'Wisdom': 'Wis', 'Sirach': 'Sir', 'Baruch': 'Bar',
+    'Prayer of Azariah': 'PrAzar', 'Susanna': 'Sus',
+    'Bel and the Dragon': 'Bel',
+    'Prayer of Manasses': 'PrMan',
+    '1 Maccabees': '1Macc', '2 Maccabees': '2Macc',
     'Hosea': 'Hos', 'Joel': 'Joel', 'Amos': 'Amos', 'Obadiah': 'Obad',
     'Jonah': 'Jonah', 'Micah': 'Mic', 'Nahum': 'Nah', 'Habakkuk': 'Hab',
     'Zephaniah': 'Zeph', 'Haggai': 'Hag', 'Zechariah': 'Zech', 'Malachi': 'Mal',
@@ -147,10 +155,18 @@ async function fetchPassageJSON({ book, chapter, verseStart, verseEnd }) {
         loadJSON(isOT ? 'ot-words.json' : 'gnt-words.json').catch(() => ({})),
     ])
 
+    // In fetchPassageJSON, change the filter:
     const verseIds = (chapterIndex[chapterId] ?? []).filter(id => {
         const verseNum = parseInt(id.split('.')[2])
-        if (verseStart !== null && verseNum < verseStart) return false
-        if (verseEnd !== null && verseNum > verseEnd) return false
+        if (verseStart !== null && verseEnd !== null) {
+            // Range: return verses within range
+            return verseNum >= verseStart && verseNum <= verseEnd
+        }
+        if (verseStart !== null && verseEnd === null) {
+            // Single verse — only return exact match
+            return verseNum === verseStart
+        }
+        // No verse specified — return whole chapter
         return true
     })
 

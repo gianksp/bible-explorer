@@ -106,6 +106,21 @@ const BOOK_ALIASES = {
     zechariah: 'Zechariah', zech: 'Zechariah', zec: 'Zechariah', zc: 'Zechariah',
     // Malachi
     malachi: 'Malachi', mal: 'Malachi', ml: 'Malachi',
+    // Apocrypha
+    '1esdras': '1 Esdras', '1esd': '1 Esdras', 'iesd': '1 Esdras',
+    '2esdras': '2 Esdras', '2esd': '2 Esdras', 'iiesd': '2 Esdras',
+    tobit: 'Tobit', tob: 'Tobit',
+    judith: 'Judith', jdt: 'Judith',
+    'additionstoesther': 'Additions to Esther', 'addest': 'Additions to Esther',
+    wisdom: 'Wisdom', wis: 'Wisdom',
+    sirach: 'Sirach', sir: 'Sirach', ecclesiasticus: 'Sirach',
+    baruch: 'Baruch', bar: 'Baruch',
+    'prayerofazariah': 'Prayer of Azariah', 'prazr': 'Prayer of Azariah',
+    susanna: 'Susanna', sus: 'Susanna',
+    'belandthedragon': 'Bel and the Dragon', bel: 'Bel and the Dragon',
+    'prayerofmanasses': 'Prayer of Manasses', 'prman': 'Prayer of Manasses',
+    '1maccabees': '1 Maccabees', '1macc': '1 Maccabees', 'imacc': '1 Maccabees',
+    '2maccabees': '2 Maccabees', '2macc': '2 Maccabees', 'iimacc': '2 Maccabees',
     // Matthew
     matthew: 'Matthew', matt: 'Matthew', mat: 'Matthew', mt: 'Matthew',
     // Mark
@@ -236,57 +251,47 @@ function parseRef(refStr, context) {
     const parts = refStr.split(',').map(s => s.trim()).filter(Boolean)
 
     for (const part of parts) {
-        // Possible formats:
-        //   "3:16"      chapter:verse
-        //   "3:16-18"   chapter:verse-verse
-        //   "12:31-13:13" cross-chapter range
-        //   "16"        verse (if chapter known) or chapter (if no chapter)
-        //   "16-18"     verse range or chapter range
+        // Check if this part starts with a book name — e.g. "rev 2" after a comma
+        // This handles "gen 1:1, rev 2" by treating rev as a new book
+        const bookResult = extractBook(part)
+        if (bookResult) {
+            context.book = bookResult.book
+            context.chapter = null
+            const subResults = parseRef(bookResult.remainder, context)
+            results.push(...subResults)
+            continue
+        }
 
-        const chVerseRange = part.match(/^(\d+):(\d+)-(\d+):(\d+)$/)  // 12:31-13:13
-        const chVerse = part.match(/^(\d+):(\d+)(?:-(\d+))?$/)   // 3:16 or 3:16-18
-        const numRange = part.match(/^(\d+)-(\d+)$/)               // 16-18
-        const numOnly = part.match(/^(\d+)$/)                     // 16
+        const chVerseRange = part.match(/^(\d+):(\d+)-(\d+):(\d+)$/)
+        const chVerse = part.match(/^(\d+):(\d+)(?:-(\d+))?$/)
+        const numRange = part.match(/^(\d+)-(\d+)$/)
+        const numOnly = part.match(/^(\d+)$/)
 
         if (chVerseRange) {
             context.chapter = parseInt(chVerseRange[1])
-            const verseStart = parseInt(chVerseRange[2])
-            const verseEnd = parseInt(chVerseRange[4])
-            results.push({ book: context.book, chapter: context.chapter, verseStart, verseEnd })
-            context.chapter = parseInt(chVerseRange[3]) // update to end chapter
-
+            results.push({
+                book: context.book, chapter: context.chapter,
+                verseStart: parseInt(chVerseRange[2]), verseEnd: parseInt(chVerseRange[4])
+            })
+            context.chapter = parseInt(chVerseRange[3])
         } else if (chVerse) {
             context.chapter = parseInt(chVerse[1])
-            const verseStart = parseInt(chVerse[2])
-            const verseEnd = chVerse[3] ? parseInt(chVerse[3]) : null
-            results.push({ book: context.book, chapter: context.chapter, verseStart, verseEnd })
-
+            results.push({
+                book: context.book, chapter: context.chapter,
+                verseStart: parseInt(chVerse[2]), verseEnd: chVerse[3] ? parseInt(chVerse[3]) : null
+            })
         } else if (numRange) {
-            const a = parseInt(numRange[1])
-            const b = parseInt(numRange[2])
-            if (context.chapter !== null) {
-                // We have a chapter — treat as verse range
+            const a = parseInt(numRange[1]), b = parseInt(numRange[2])
+            if (context.chapter !== null)
                 results.push({ book: context.book, chapter: context.chapter, verseStart: a, verseEnd: b })
-            } else {
-                // No chapter — treat as chapter range
-                results.push({ book: context.book, chapter: a, verseStart: null, verseEnd: null })
-                // Only show first chapter for simplicity (like BG chapter range shows all)
-                context.chapter = a
-            }
-
+            else { context.chapter = a; results.push({ book: context.book, chapter: a, verseStart: null, verseEnd: null }) }
         } else if (numOnly) {
             const n = parseInt(numOnly[1])
-            if (context.chapter !== null) {
-                // Have chapter — this is a verse
+            if (context.chapter !== null)
                 results.push({ book: context.book, chapter: context.chapter, verseStart: n, verseEnd: null })
-            } else {
-                // No chapter — this is a chapter
-                context.chapter = n
-                results.push({ book: context.book, chapter: n, verseStart: null, verseEnd: null })
-            }
+            else { context.chapter = n; results.push({ book: context.book, chapter: n, verseStart: null, verseEnd: null }) }
         }
     }
-
     return results
 }
 
