@@ -34,7 +34,7 @@ export default function TopBar({
             </button>
 
             {/* Mode toggle — right side */}
-            <div className="flex rounded-lg border border-gray-200 overflow-hidden shrink-0 w-[120px] justify-end">
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden shrink-0 w-[112px] justify-end">
                 {[
                     { modeId: 'reader', label: 'Reader' },
                     { modeId: 'verse', label: 'Verse' },
@@ -43,7 +43,7 @@ export default function TopBar({
                         key={modeId}
                         onClick={() => onSelectMode(modeId)}
                         className={`
-              px-3 py-1.5 text-xs font-medium transition-colors
+              px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer
               ${activeMode === modeId
                                 ? 'bg-gray-900 text-white'
                                 : 'bg-white text-gray-500 hover:bg-gray-50'}

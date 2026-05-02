@@ -9,7 +9,7 @@ import LoadingState from '../components/ui/LoadingState.jsx'
 import ErrorState from '../components/ui/ErrorState.jsx'
 import { usePassage } from '../data/useBibleData.js'
 import { CHAPTER_COUNTS } from '../components/BookNav.jsx'
-import { DEFAULT_VERSION_ID } from '../data/mockVerses.js'
+import { DEFAULT_VERSION_ID } from '../data/versions.js'
 
 const DEFAULT_BOOK = 'Genesis'
 const DEFAULT_CHAPTER = 1

@@ -1,20 +1,16 @@
-import { MOCK_VERSIONS } from '../../data/mockVerses.js'
+import { ENGLISH_VERSIONS, ORIGINAL_VERSIONS } from '../../data/versions.js'
 
-// Only English translations — originals always shown automatically in verse view
-// Props:
-//   activeVersionId — string
-//   onSelect        — fn(versionId)
+// Remove the MOCK_VERSIONS import entirely
+// Component stays the same, just uses ENGLISH_VERSIONS directly
 
 export default function VersionSelector({ activeVersionId, onSelect }) {
-    const englishVersions = MOCK_VERSIONS.filter(v => !v.isOriginal)
-
     return (
         <div className="mt-4">
             <div className="text-[10px] uppercase tracking-widest text-gray-400 mb-2">
                 Translation
             </div>
             <div className="flex flex-wrap gap-2">
-                {englishVersions.map(version => (
+                {ENGLISH_VERSIONS.map(version => (
                     <button
                         key={version.versionId}
                         onClick={() => onSelect(version.versionId)}

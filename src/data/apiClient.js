@@ -1,17 +1,26 @@
 // apiClient.js
-// Single swap point between data sources.
+// ─────────────────────────────────────────────────────────────────────────────
+// All data fetching goes through here.
 //
-// DATA_SOURCE options:
-//   'mock' — uses mockVerses.js (instant, no files needed)
-//   'json' — reads from public/data/*.json (run process-bible-data.mjs first)
-//   'api'  — hits a real REST API at API_BASE_URL
+// DATA_SOURCE = 'json' → reads from public/data/*.json files
+// DATA_SOURCE = 'api'  → hits REST API at API_BASE_URL
+//
+// To add a new Bible version: edit versions.js only.
+// To switch to a real API: change DATA_SOURCE to 'api' and set API_BASE_URL.
+// ─────────────────────────────────────────────────────────────────────────────
 
 import { parseSearch, normalizeBookName } from './searchParser.js'
+import {
+    VERSIONS,
+    ENGLISH_VERSIONS,
+    DEFAULT_VERSION,
+    getOriginalForTestament,
+} from './versions.js'
 
 const DATA_SOURCE = 'json'
 const API_BASE_URL = 'https://your-api.com/v1'
 
-const ORIGINAL_VERSION_IDS = ['GNT', 'WLC', 'LXX']
+// ── Book maps ─────────────────────────────────────────────────────────────────
 
 const OT_BOOK_IDS = new Set([
     'Gen', 'Ex', 'Lev', 'Num', 'Deut', 'Josh', 'Judg', 'Ruth',
@@ -19,6 +28,8 @@ const OT_BOOK_IDS = new Set([
     'Esth', 'Job', 'Ps', 'Prov', 'Eccl', 'Song', 'Isa', 'Jer',
     'Lam', 'Ezek', 'Dan', 'Hos', 'Joel', 'Amos', 'Obad', 'Jonah',
     'Mic', 'Nah', 'Hab', 'Zeph', 'Hag', 'Zech', 'Mal',
+    '1Esd', '2Esd', 'Tob', 'Jdt', 'AddEst', 'Wis', 'Sir', 'Bar',
+    'PrAzar', 'Sus', 'Bel', 'PrMan', '1Macc', '2Macc',
 ])
 
 const BOOK_NAME_TO_ID = {
@@ -29,17 +40,13 @@ const BOOK_NAME_TO_ID = {
     'Esther': 'Esth', 'Job': 'Job', 'Psalms': 'Ps', 'Proverbs': 'Prov',
     'Ecclesiastes': 'Eccl', 'Song of Solomon': 'Song', 'Isaiah': 'Isa',
     'Jeremiah': 'Jer', 'Lamentations': 'Lam', 'Ezekiel': 'Ezek', 'Daniel': 'Dan',
-    '1 Esdras': '1Esd', '2 Esdras': '2Esd',
-    'Tobit': 'Tob', 'Judith': 'Jdt',
-    'Additions to Esther': 'AddEst',
-    'Wisdom': 'Wis', 'Sirach': 'Sir', 'Baruch': 'Bar',
-    'Prayer of Azariah': 'PrAzar', 'Susanna': 'Sus',
-    'Bel and the Dragon': 'Bel',
-    'Prayer of Manasses': 'PrMan',
-    '1 Maccabees': '1Macc', '2 Maccabees': '2Macc',
     'Hosea': 'Hos', 'Joel': 'Joel', 'Amos': 'Amos', 'Obadiah': 'Obad',
     'Jonah': 'Jonah', 'Micah': 'Mic', 'Nahum': 'Nah', 'Habakkuk': 'Hab',
     'Zephaniah': 'Zeph', 'Haggai': 'Hag', 'Zechariah': 'Zech', 'Malachi': 'Mal',
+    '1 Esdras': '1Esd', '2 Esdras': '2Esd', 'Tobit': 'Tob', 'Judith': 'Jdt',
+    'Additions to Esther': 'AddEst', 'Wisdom': 'Wis', 'Sirach': 'Sir', 'Baruch': 'Bar',
+    'Prayer of Azariah': 'PrAzar', 'Susanna': 'Sus', 'Bel and the Dragon': 'Bel',
+    'Prayer of Manasses': 'PrMan', '1 Maccabees': '1Macc', '2 Maccabees': '2Macc',
     'Matthew': 'Matt', 'Mark': 'Mark', 'Luke': 'Luke', 'John': 'John',
     'Acts': 'Acts', 'Romans': 'Rom', '1 Corinthians': '1Cor', '2 Corinthians': '2Cor',
     'Galatians': 'Gal', 'Ephesians': 'Eph', 'Philippians': 'Phil', 'Colossians': 'Col',
@@ -53,27 +60,17 @@ const ID_TO_BOOK_NAME = Object.fromEntries(
     Object.entries(BOOK_NAME_TO_ID).map(([name, id]) => [id, name])
 )
 
-// ── JSON file cache ───────────────────────────────────────────────────────────
+// ── JSON cache ────────────────────────────────────────────────────────────────
 
 const jsonCache = {}
 
 async function loadJSON(filename) {
     if (jsonCache[filename]) return jsonCache[filename]
-    const response = await fetch(`/data/${filename}`)
-    if (!response.ok) throw new Error(`Failed to load /data/${filename}: ${response.status}`)
-    const data = await response.json()
+    const res = await fetch(`/data/${filename}`)
+    if (!res.ok) throw new Error(`Failed to load /data/${filename}: ${res.status}`)
+    const data = await res.json()
     jsonCache[filename] = data
     return data
-}
-
-// ── Mock imports ──────────────────────────────────────────────────────────────
-
-let _mockData = null
-async function getMockData() {
-    if (_mockData) return _mockData
-    const m = await import('./mockVerses.js')
-    _mockData = m
-    return m
 }
 
 // ── REST fetch ────────────────────────────────────────────────────────────────
@@ -81,218 +78,139 @@ async function getMockData() {
 async function apiFetch(endpoint, params = {}) {
     const url = new URL(`${API_BASE_URL}${endpoint}`)
     Object.entries(params).forEach(([k, v]) => {
-        if (v !== null && v !== undefined) url.searchParams.set(k, String(v))
+        if (v != null) url.searchParams.set(k, String(v))
     })
     const res = await fetch(url.toString(), {
         headers: { 'Content-Type': 'application/json' },
     })
-    if (!res.ok) throw new Error(`API error ${res.status} on ${endpoint}`)
+    if (!res.ok) throw new Error(`API ${res.status} on ${endpoint}`)
     return res.json()
 }
 
 // ── Versions ──────────────────────────────────────────────────────────────────
 
-const STATIC_VERSIONS = [
-    { versionId: 'KJV', label: 'KJV', language: 'english', isOriginal: false },
-    { versionId: 'GNT', label: 'GNT', language: 'greek', isOriginal: true },
-    { versionId: 'WLC', label: 'WLC', language: 'hebrew', isOriginal: true },
-]
-
 export async function fetchVersions() {
-    if (DATA_SOURCE === 'mock') {
-        const { MOCK_VERSIONS } = await getMockData()
-        return MOCK_VERSIONS
-    }
-    if (DATA_SOURCE === 'json') return STATIC_VERSIONS
+    if (DATA_SOURCE === 'json') return VERSIONS
     return apiFetch('/versions')
 }
 
 // ── Passage ───────────────────────────────────────────────────────────────────
+//
+// Returns array of verse objects:
+// {
+//   verseId:  'John.1.1',
+//   book:     'John',
+//   chapter:  1,
+//   verse:    1,
+//   versions: {
+//     KJV: { text: '...' },
+//     DRC: { text: '...' },
+//     GNT: { text: '...', words: [ wordObj, ... ] },
+//   }
+// }
 
-export async function fetchPassage({
-    book,
-    chapter,
-    verseStart = null,
-    verseEnd = null,
-    activeVersionIds = [],
-}) {
-    if (DATA_SOURCE === 'mock') return fetchPassageMock({ book, chapter, verseStart, verseEnd, activeVersionIds })
+export async function fetchPassage({ book, chapter, verseStart = null, verseEnd = null, activeVersionIds = [] }) {
     if (DATA_SOURCE === 'json') return fetchPassageJSON({ book, chapter, verseStart, verseEnd })
     return apiFetch('/passage', { book, chapter, verseStart, verseEnd, versions: activeVersionIds.join(',') })
 }
 
-async function fetchPassageMock({ book, chapter, verseStart, verseEnd, activeVersionIds }) {
-    const { MOCK_VERSES } = await getMockData()
-    return MOCK_VERSES
-        .filter(v => v.book === book && v.chapter === chapter)
-        .filter(v => {
-            if (verseStart === null && verseEnd === null) return true
-            if (verseEnd === null) return v.verse === verseStart
-            return v.verse >= verseStart && v.verse <= verseEnd
-        })
-        .map(verse => ({
-            ...verse,
-            versions: Object.fromEntries(
-                Object.entries(verse.versions).filter(([id]) =>
-                    activeVersionIds.includes(id) || ORIGINAL_VERSION_IDS.includes(id)
-                )
-            ),
-        }))
-}
-
 async function fetchPassageJSON({ book, chapter, verseStart, verseEnd }) {
-    // Normalize book name — handles 'psalm'→'Psalms', 'jn'→'John' etc
     const canonicalBook = normalizeBookName(book)
     const bookId = BOOK_NAME_TO_ID[canonicalBook]
     if (!bookId) throw new Error(`Unknown book: ${book}`)
 
-    const chapterId = `${bookId}.${chapter}`
     const isOT = OT_BOOK_IDS.has(bookId)
+    const chapterId = `${bookId}.${chapter}`
+    const originalVersion = getOriginalForTestament(isOT)
 
-    const [chapterIndex, kjvVerses, originalWords] = await Promise.all([
+    // Load chapter index + all English versions + original language in parallel
+    const [chapterIndex, ...versionData] = await Promise.all([
         loadJSON('chapter-index.json'),
-        loadJSON('kjv.json'),
-        loadJSON(isOT ? 'ot-words.json' : 'gnt-words.json').catch(() => ({})),
+        ...ENGLISH_VERSIONS.map(v => loadJSON(v.dataFile).catch(() => ({}))),
+        originalVersion
+            ? loadJSON(originalVersion.dataFile).catch(() => ({}))
+            : Promise.resolve({}),
     ])
 
-    // In fetchPassageJSON, change the filter:
+    const englishData = versionData.slice(0, ENGLISH_VERSIONS.length)
+    const originalWords = versionData[ENGLISH_VERSIONS.length] ?? {}
+
+    // Filter to requested verse range
     const verseIds = (chapterIndex[chapterId] ?? []).filter(id => {
-        const verseNum = parseInt(id.split('.')[2])
-        if (verseStart !== null && verseEnd !== null) {
-            // Range: return verses within range
-            return verseNum >= verseStart && verseNum <= verseEnd
-        }
-        if (verseStart !== null && verseEnd === null) {
-            // Single verse — only return exact match
-            return verseNum === verseStart
-        }
-        // No verse specified — return whole chapter
+        const n = parseInt(id.split('.')[2])
+        if (verseStart !== null && verseEnd !== null) return n >= verseStart && n <= verseEnd
+        if (verseStart !== null) return n === verseStart
         return true
     })
 
     return verseIds.map(id => {
         const verseNum = parseInt(id.split('.')[2])
-        const kjvText = kjvVerses[id] ?? ''
-        const originalWords_ = originalWords[id]
 
-        const versions = { KJV: { text: kjvText } }
+        // Build versions object — include all English versions that have this verse
+        const versions = {}
+        ENGLISH_VERSIONS.forEach((v, i) => {
+            const text = englishData[i][id]
+            if (text) versions[v.versionId] = { text }
+        })
 
-        if (originalWords_?.length) {
-            const versionKey = isOT ? 'WLC' : 'GNT'
-            const text = originalWords_
-                .map(w => w.surface
-                    .replace(/[\u0591-\u05AF\u05BD\u05BF\u05C0\u05C3\u05C6]/g, '')
-                    .replace(/[/\\׃]/g, '')
-                    .trim()
-                )
-                .join(' ')
-            versions[versionKey] = { text, words: originalWords_ }
+        // Attach original language words if available
+        const words = originalWords[id]
+        if (words?.length && originalVersion) {
+            versions[originalVersion.versionId] = {
+                text: words.map(w => w.surface).join(' '),
+                words,
+            }
         }
 
-        return {
-            verseId: id,
-            book: canonicalBook,
-            chapter,
-            verse: verseNum,
-            versions,
-        }
+        return { verseId: id, book: canonicalBook, chapter, verse: verseNum, versions }
     })
 }
 
 // ── Search ────────────────────────────────────────────────────────────────────
 
 export async function fetchSearch({ rawQuery, activeVersionIds = [] }) {
-    const parsedQuery = parseSearch(rawQuery)
-    if (!parsedQuery) return []
+    const parsed = parseSearch(rawQuery)
+    if (!parsed) return []
 
-    if (DATA_SOURCE === 'mock') {
-        const { MOCK_VERSES, MOCK_SEARCH_RESULTS } = await getMockData()
-        return mockSearch(parsedQuery, activeVersionIds, MOCK_VERSES, MOCK_SEARCH_RESULTS)
-    }
-
-    if (DATA_SOURCE === 'json') return jsonSearch(parsedQuery)
-
-    return apiFetch('/search', {
-        q: rawQuery,
-        type: parsedQuery.type,
-        versions: activeVersionIds.join(','),
-    })
+    if (DATA_SOURCE === 'json') return jsonSearch(parsed)
+    return apiFetch('/search', { q: rawQuery, type: parsed.type, versions: activeVersionIds.join(',') })
 }
 
-async function jsonSearch(parsedQuery) {
-    // Single passage
-    if (parsedQuery.type === 'passage') {
-        const verses = await fetchPassageJSON({
-            book: parsedQuery.book,
-            chapter: parsedQuery.chapter,
-            verseStart: parsedQuery.verseStart,
-            verseEnd: parsedQuery.verseEnd,
-        })
-        return verses.map(v => ({
-            verseId: v.verseId,
-            book: v.book,
-            chapter: v.chapter,
-            verse: v.verse,
-            snippet: v.versions.KJV?.text ?? '',
-            matchedTerms: [],
-            versionId: 'KJV',
+async function jsonSearch(parsed) {
+    if (parsed.type === 'passage') {
+        return versesToResults(await fetchPassageJSON({
+            book: parsed.book, chapter: parsed.chapter,
+            verseStart: parsed.verseStart, verseEnd: parsed.verseEnd,
         }))
     }
 
-    // Multiple passages — semicolons or commas
-    if (parsedQuery.type === 'multi-passage') {
-        const allVerses = await Promise.all(
-            parsedQuery.passages.map(p =>
-                fetchPassageJSON({
-                    book: p.book,
-                    chapter: p.chapter,
-                    verseStart: p.verseStart,
-                    verseEnd: p.verseEnd,
-                }).catch(() => [])
+    if (parsed.type === 'multi-passage') {
+        const all = await Promise.all(
+            parsed.passages.map(p =>
+                fetchPassageJSON({ book: p.book, chapter: p.chapter, verseStart: p.verseStart, verseEnd: p.verseEnd })
+                    .catch(() => [])
             )
         )
-        return allVerses.flat().map(v => ({
-            verseId: v.verseId,
-            book: v.book,
-            chapter: v.chapter,
-            verse: v.verse,
-            snippet: v.versions.KJV?.text ?? '',
-            matchedTerms: [],
-            versionId: 'KJV',
-        }))
+        return versesToResults(all.flat())
     }
 
-    // Strong's number
-    if (parsedQuery.type === 'strongs') {
-        const isGreek = parsedQuery.language === 'greek'
-        const wordsFile = isGreek ? 'gnt-words.json' : 'ot-words.json'
-        const sn = `${isGreek ? 'G' : 'H'}${parsedQuery.number}`
-        const [words, kjvVerses] = await Promise.all([
-            loadJSON(wordsFile).catch(() => ({})),
-            loadJSON('kjv.json'),
+    if (parsed.type === 'strongs') {
+        const isGreek = parsed.language === 'greek'
+        const sn = `${isGreek ? 'G' : 'H'}${parsed.number}`
+        const [words, primaryVerses] = await Promise.all([
+            loadJSON(isGreek ? 'gnt-words.json' : 'ot-words.json').catch(() => ({})),
+            loadJSON(DEFAULT_VERSION.dataFile),
         ])
         return Object.entries(words)
-            .filter(([, verseWords]) => verseWords.some(w => w.strongsNumber === sn))
+            .filter(([, ws]) => ws.some(w => w.strongsNumber === sn))
             .slice(0, 200)
-            .map(([id]) => {
-                const [bookId, chapter, verse] = id.split('.')
-                return {
-                    verseId: id,
-                    book: ID_TO_BOOK_NAME[bookId] ?? bookId,
-                    chapter: parseInt(chapter),
-                    verse: parseInt(verse),
-                    snippet: kjvVerses[id] ?? '',
-                    matchedTerms: [sn],
-                    versionId: 'KJV',
-                }
-            })
+            .map(([id]) => verseIdToResult(id, primaryVerses[id] ?? '', [sn]))
     }
 
-    // Keyword search
-    if (parsedQuery.type === 'keyword') {
-        const kjvVerses = await loadJSON('kjv.json')
-        const { terms, excludeTerms, operator } = parsedQuery
-        return Object.entries(kjvVerses)
+    if (parsed.type === 'keyword') {
+        const primaryVerses = await loadJSON(DEFAULT_VERSION.dataFile)
+        const { terms, excludeTerms, operator } = parsed
+        return Object.entries(primaryVerses)
             .filter(([, text]) => {
                 const lower = text.toLowerCase()
                 if (excludeTerms.some(t => lower.includes(t))) return false
@@ -301,61 +219,16 @@ async function jsonSearch(parsedQuery) {
                     : terms.every(t => lower.includes(t))
             })
             .slice(0, 100)
-            .map(([id, text]) => {
-                const [bookId, chapter, verse] = id.split('.')
-                return {
-                    verseId: id,
-                    book: ID_TO_BOOK_NAME[bookId] ?? bookId,
-                    chapter: parseInt(chapter),
-                    verse: parseInt(verse),
-                    snippet: text,
-                    matchedTerms: parsedQuery.terms,
-                    versionId: 'KJV',
-                }
-            })
+            .map(([id, text]) => verseIdToResult(id, text, parsed.terms))
     }
 
     return []
-}
-
-function mockSearch(parsedQuery, activeVersionIds, MOCK_VERSES, MOCK_SEARCH_RESULTS) {
-    if (parsedQuery.type === 'passage') {
-        return MOCK_VERSES
-            .filter(v => v.book === parsedQuery.book)
-            .filter(v => parsedQuery.chapter ? v.chapter === parsedQuery.chapter : true)
-            .filter(v => parsedQuery.verseStart ? v.verse >= parsedQuery.verseStart : true)
-            .filter(v => parsedQuery.verseEnd ? v.verse <= parsedQuery.verseEnd : true)
-            .map(verse => ({
-                verseId: verse.verseId, book: verse.book, chapter: verse.chapter, verse: verse.verse,
-                snippet: verse.versions[activeVersionIds[0]]?.text ?? '',
-                matchedTerms: [], versionId: activeVersionIds[0] ?? 'KJV',
-            }))
-    }
-    if (parsedQuery.type === 'keyword') {
-        const { terms, excludeTerms, operator } = parsedQuery
-        return MOCK_VERSES
-            .filter(verse => {
-                const text = Object.values(verse.versions).map(v => v.text).join(' ').toLowerCase()
-                if (excludeTerms.some(t => text.includes(t))) return false
-                return operator === 'OR' ? terms.some(t => text.includes(t)) : terms.every(t => text.includes(t))
-            })
-            .map(verse => ({
-                verseId: verse.verseId, book: verse.book, chapter: verse.chapter, verse: verse.verse,
-                snippet: verse.versions[activeVersionIds[0]]?.text ?? '',
-                matchedTerms: parsedQuery.terms, versionId: activeVersionIds[0] ?? 'KJV',
-            }))
-    }
-    return MOCK_SEARCH_RESULTS
 }
 
 // ── Strong's ──────────────────────────────────────────────────────────────────
 
 export async function fetchStrongs(strongsNumber) {
     if (!strongsNumber) return null
-    if (DATA_SOURCE === 'mock') {
-        const { MOCK_STRONGS } = await getMockData()
-        return MOCK_STRONGS[strongsNumber] ?? null
-    }
     if (DATA_SOURCE === 'json') {
         const isGreek = strongsNumber.startsWith('G')
         const dict = await loadJSON(isGreek ? 'strongs-greek.json' : 'strongs-hebrew.json').catch(() => ({}))
@@ -366,27 +239,43 @@ export async function fetchStrongs(strongsNumber) {
 
 export async function fetchStrongsOccurrences(strongsNumber, activeVersionIds = []) {
     if (!strongsNumber) return []
-    if (DATA_SOURCE === 'mock') {
-        const { MOCK_SEARCH_RESULTS } = await getMockData()
-        return MOCK_SEARCH_RESULTS
-    }
     if (DATA_SOURCE === 'json') {
         const isGreek = strongsNumber.startsWith('G')
-        const [words, kjvVerses] = await Promise.all([
+        const [words, primaryVerses] = await Promise.all([
             loadJSON(isGreek ? 'gnt-words.json' : 'ot-words.json').catch(() => ({})),
-            loadJSON('kjv.json'),
+            loadJSON(DEFAULT_VERSION.dataFile),
         ])
         return Object.entries(words)
-            .filter(([, verseWords]) => verseWords.some(w => w.strongsNumber === strongsNumber))
+            .filter(([, ws]) => ws.some(w => w.strongsNumber === strongsNumber))
             .slice(0, 200)
-            .map(([id]) => {
-                const [bookId, chapter, verse] = id.split('.')
-                return {
-                    verseId: id, book: ID_TO_BOOK_NAME[bookId] ?? bookId,
-                    chapter: parseInt(chapter), verse: parseInt(verse),
-                    snippet: kjvVerses[id] ?? '', matchedTerms: [strongsNumber], versionId: 'KJV',
-                }
-            })
+            .map(([id]) => verseIdToResult(id, primaryVerses[id] ?? '', [strongsNumber]))
     }
     return apiFetch(`/strongs/${strongsNumber}/occurrences`, { versions: activeVersionIds.join(',') })
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function versesToResults(verses) {
+    return verses.map(v => ({
+        verseId: v.verseId,
+        book: v.book,
+        chapter: v.chapter,
+        verse: v.verse,
+        snippet: v.versions[DEFAULT_VERSION.versionId]?.text ?? '',
+        matchedTerms: [],
+        versionId: DEFAULT_VERSION.versionId,
+    }))
+}
+
+function verseIdToResult(id, snippet, matchedTerms) {
+    const [bookId, chapter, verse] = id.split('.')
+    return {
+        verseId: id,
+        book: ID_TO_BOOK_NAME[bookId] ?? bookId,
+        chapter: parseInt(chapter),
+        verse: parseInt(verse),
+        snippet,
+        matchedTerms,
+        versionId: DEFAULT_VERSION.versionId,
+    }
 }

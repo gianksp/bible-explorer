@@ -1,7 +1,6 @@
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useState, useMemo } from 'react'
 import { useSearch, usePassage } from '../data/useBibleData.js'
-import { DEFAULT_VERSION_ID } from '../data/mockVerses.js'
 import TopBar from '../components/nav/TopBar.jsx'
 import PassageDropdown from '../components/nav/PassageDropdown.jsx'
 import VerseByVerseView from '../components/passage/VerseByVerseView.jsx'
@@ -110,6 +109,7 @@ export default function SearchResults() {
     )
 }
 import ReaderView from '../components/passage/ReaderView.jsx'
+import { DEFAULT_VERSION_ID } from '../data/versions.js'
 
 function ChapterResultGroup({
     book,

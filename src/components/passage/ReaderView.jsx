@@ -1,7 +1,5 @@
-import { SECTION_HEADINGS } from '../../data/mockVerses.js'
-
 // Props:
-//   verses         — MOCK_VERSES[]
+//   verses         — verse objects array
 //   versionId      — string
 //   highlightTerms — string[] (optional, for search results)
 
@@ -10,30 +8,26 @@ export default function ReaderView({ verses, versionId, highlightTerms = [] }) {
 
     return (
         <div className="max-w-2xl mx-auto px-6 py-10">
-            {verses.map((verse) => {
-                const { verseId, verse: verseNum, versions } = verse
-                const text = versions[versionId]?.text ?? ''
-                const heading = SECTION_HEADINGS[verseId]
+            {/* <div className="pl-9"> */}
+                {verses.map(verse => {
+                    const { verseId, verse: verseNum, versions } = verse
+                    const text = versions[versionId]?.text ?? ''
 
-                return (
-                    <span key={verseId}>
-                        {heading && (
-                            <h2 className="block text-base font-semibold text-gray-700 mt-8 mb-3 clear-both">
-                                {heading}
-                            </h2>
-                        )}
-                        <sup className="text-[10px] text-gray-400 mr-0.5 select-none font-normal">
-                            {verseNum}
-                        </sup>
-                        <span className="text-gray-800 leading-8 text-[17px]">
-                            {highlightTerms.length > 0
-                                ? highlightText(text, highlightTerms)
-                                : text
-                            }{' '}
+                    return (
+                        <span key={verseId}>
+                            <sup className="text-[10px] text-gray-400 mr-0.5 select-none font-normal">
+                                {verseNum}
+                            </sup>
+                            <span className="text-[17px] text-gray-800 leading-8">
+                                {highlightTerms.length > 0
+                                    ? highlightText(text, highlightTerms)
+                                    : text
+                                }{' '}
+                            </span>
                         </span>
-                    </span>
-                )
-            })}
+                    )
+                })}
+            {/* </div> */}
         </div>
     )
 }
