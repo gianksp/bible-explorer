@@ -1,9 +1,11 @@
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useState, useMemo } from 'react'
 import { useSearch, usePassage } from '../data/useBibleData.js'
+import { DEFAULT_VERSION_ID } from '../data/versions.js'
 import TopBar from '../components/nav/TopBar.jsx'
 import PassageDropdown from '../components/nav/PassageDropdown.jsx'
 import VerseByVerseView from '../components/passage/VerseByVerseView.jsx'
+import ReaderView from '../components/passage/ReaderView.jsx'
 import LoadingState from '../components/ui/LoadingState.jsx'
 import ErrorState from '../components/ui/ErrorState.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
@@ -35,14 +37,13 @@ export default function SearchResults() {
         setActiveMode(mode)
     }
 
-    // Group results by book+chapter to fetch whole chapters at once
     const chapterGroups = useMemo(() => {
         if (!results?.length) return []
         const map = {}
         for (const result of results) {
             const key = `${result.book}||${result.chapter}`
             if (!map[key]) map[key] = { book: result.book, chapter: result.chapter, verses: [] }
-            map[key].verses.push(result.verse)
+            map[key].verses.push(parseInt(result.verse))
         }
         return Object.values(map)
     }, [results])
@@ -53,7 +54,8 @@ export default function SearchResults() {
                 label={rawQuery || 'Search'}
                 versionId={activeVersionId}
                 activeMode={activeMode}
-                onOpenDropdown={() => setDropdownOpen(true)}
+                dropdownOpen={dropdownOpen}
+                onToggleDropdown={() => setDropdownOpen(prev => !prev)}
                 onSelectMode={handleSelectMode}
             />
 
@@ -108,29 +110,21 @@ export default function SearchResults() {
         </div>
     )
 }
-import ReaderView from '../components/passage/ReaderView.jsx'
-import { DEFAULT_VERSION_ID } from '../data/versions.js'
 
 function ChapterResultGroup({
-    book,
-    chapter,
-    verseNumbers,
-    activeVersionId,
-    activeMode,
-    matchedTerms,
-    onNavigate,
+    book, chapter, verseNumbers,
+    activeVersionId, activeMode,
+    matchedTerms, onNavigate,
 }) {
     const { data: verses, isLoading } = usePassage({
-        book,
-        chapter,
-        verseStart: null,
-        verseEnd: null,
+        book, chapter,
+        verseStart: null, verseEnd: null,
         activeVersionIds: [activeVersionId],
     })
 
     const matchedVerses = useMemo(() => {
         if (!verses) return []
-        return verses.filter(v => verseNumbers.includes(v.verse))
+        return verses.filter(v => verseNumbers.includes(parseInt(v.verse)))
     }, [verses, verseNumbers])
 
     if (isLoading) return (

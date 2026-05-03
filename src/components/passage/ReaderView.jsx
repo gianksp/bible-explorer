@@ -3,6 +3,8 @@
 //   versionId      — string
 //   highlightTerms — string[] (optional, for search results)
 
+import { VerseNum } from "./VerseNum"
+
 export default function ReaderView({ verses, versionId, highlightTerms = [] }) {
     if (!verses?.length) return null
 
@@ -15,9 +17,7 @@ export default function ReaderView({ verses, versionId, highlightTerms = [] }) {
 
                     return (
                         <span key={verseId}>
-                            <sup className="text-[10px] text-gray-400 mr-0.5 select-none font-normal">
-                                {verseNum}
-                            </sup>
+                            <VerseNum verseNum={verseNum} />
                             <span className="text-[17px] text-gray-800 leading-8">
                                 {highlightTerms.length > 0
                                     ? highlightText(text, highlightTerms)

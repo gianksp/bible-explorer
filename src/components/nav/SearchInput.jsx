@@ -21,7 +21,10 @@ export default function SearchInput({ onSearch, onQueryChange, autoFocus = false
 
     function handleKeyDown(e) {
         if (e.key === 'Enter' && query.trim()) onSearch(query.trim())
-        if (e.key === 'Escape') { setQuery(''); onQueryChange?.('') }
+        if (e.key === 'Escape') {
+            setQuery('')
+            onQueryChange?.('')
+        }
     }
 
     function handleClear() {
@@ -38,20 +41,24 @@ export default function SearchInput({ onSearch, onQueryChange, autoFocus = false
                 value={query}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
-                placeholder="Search — John 3:16, G3056, love OR faith…"
+                placeholder="Enter passage, keyword or topic"
                 className="
-          w-full px-4 py-3 pr-10 text-sm bg-gray-50 rounded-xl
-          border border-gray-200 text-gray-900 placeholder-gray-400
-          focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300
+          w-full px-4 py-3 pr-10 text-md bg-gray-50 rounded-lg
+          border border-gray-500 placeholder-gray-500
+          focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-400
           transition-all
         "
             />
             {query && (
                 <button
+                    onMouseDown={e => e.preventDefault()}
                     onClick={handleClear}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-lg leading-none"
+                    className="cursor-pointer absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full bg-gray-300 hover:bg-gray-400 transition-colors"
+                    aria-label="Clear search"
                 >
-                    ×
+                    <svg viewBox="0 0 10 10" fill="currentColor" className="w-2.5 h-2.5 text-white">
+                        <path d="M1.5 1.5L8.5 8.5M8.5 1.5L1.5 8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    </svg>
                 </button>
             )}
         </div>

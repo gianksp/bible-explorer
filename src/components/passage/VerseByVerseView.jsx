@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from 'react'
 import HoverableWord from './HoverableWord.jsx'
+import { VerseNum } from './VerseNum.jsx'
 
 const ORIGINAL_VERSION_IDS = ['GNT', 'WLC', 'LXX']
 
@@ -62,28 +63,30 @@ export default function VerseByVerseView({
                     const isHebrew = originalEntry?.[0] === 'WLC'
                     const isHighlighted = verseNum === highlightVerse
 
+                    // Highlight this verse if it contains the hovered word
+                    const verseHasHoveredWord = hoveredStrongsNumber &&
+                        originalEntry?.[1]?.words?.some(w => w.strongsNumber === hoveredStrongsNumber)
+
                     return (
                         <div
                             key={verseId}
                             ref={isHighlighted ? highlightRef : null}
-                            className={isHighlighted ? 'bg-amber-50 -mx-2 px-2 py-1 rounded-lg' : ''}
+                            className={`
+                transition-colors duration-150 rounded-lg
+                ${isHighlighted ? 'bg-amber-50' : ''}
+              `}
                         >
-                            
-
-                            {/* English — verse number as superscript, same as ReaderView */}
-                            <p className="text-[17px] leading-8 text-gray-800">
-                                <sup className="text-[10px] text-gray-400 mr-0.5 select-none font-normal">
-                                    {verseNum}
-                                </sup>
+                            {/* English — plain, no word-level highlights from hover */}
+                            <p className={`text-[17px] leading-8 text-gray-800 mb-4
+                ${verseHasHoveredWord && !isHighlighted ? 'bg-amber-50' : ''}`}>
+                                <VerseNum verseNum={verseNum} />
                                 <EnglishText
                                     text={englishText}
                                     highlightTerms={highlightTerms}
-                                    hoveredStrongsNumber={hoveredStrongsNumber}
-                                    originalWords={originalEntry?.[1]?.words ?? []}
                                 />
                             </p>
 
-                            {/* Original language below */}
+                            {/* Original language */}
                             {originalEntry && (
                                 <p
                                     dir={isHebrew ? 'rtl' : 'ltr'}
@@ -104,6 +107,7 @@ export default function VerseByVerseView({
                                     }
                                 </p>
                             )}
+                            <div class="h-px bg-neutral-200 my-8 opacity-60"></div>
                         </div>
                     )
                 })}
@@ -112,34 +116,25 @@ export default function VerseByVerseView({
     )
 }
 
-function EnglishText({ text, highlightTerms, hoveredStrongsNumber, originalWords }) {
+// Only highlights search terms — no Strong's word matching
+function EnglishText({ text, highlightTerms }) {
     if (!text) return null
 
-    const hoveredGlosses = hoveredStrongsNumber
-        ? originalWords
-            .filter(w => w.strongsNumber === hoveredStrongsNumber)
-            .map(w => w.englishGloss?.toLowerCase().trim())
-            .filter(Boolean)
-        : []
+    if (!highlightTerms?.length) return <>{text}</>
 
-    const parts = text.split(/(\s+)/)
+    const escapedTerms = highlightTerms.map(t =>
+        t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    )
+    const pattern = new RegExp(`(${escapedTerms.join('|')})`, 'gi')
+    const parts = text.split(pattern)
 
     return (
         <>
             {parts.map((part, i) => {
-                const clean = part.toLowerCase().replace(/[.,;:!?'"()]/g, '').trim()
-                if (!clean) return <span key={i}>{part}</span>
-
-                const isSearchMatch = highlightTerms.some(term =>
-                    clean === term.toLowerCase() || clean.includes(term.toLowerCase())
-                )
-                const isStrongsMatch = hoveredGlosses.some(gloss =>
-                    gloss.split(/[\s/]+/).some(glossWord => clean === glossWord)
-                )
-
-                if (isSearchMatch) return <mark key={i} className="bg-amber-200 text-amber-900 rounded-sm px-0.5">{part}</mark>
-                if (isStrongsMatch) return <mark key={i} className="bg-amber-100 text-amber-800 rounded-sm px-0.5">{part}</mark>
-                return <span key={i}>{part}</span>
+                const isMatch = highlightTerms.some(t => part.toLowerCase() === t.toLowerCase())
+                return isMatch
+                    ? <mark key={i} className="bg-amber-200 text-amber-900 rounded-sm">{part}</mark>
+                    : part
             })}
         </>
     )

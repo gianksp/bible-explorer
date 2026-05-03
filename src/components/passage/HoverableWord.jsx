@@ -40,10 +40,10 @@ export default function HoverableWord({
             <span
                 onClick={handleClick}
                 className={`
-          cursor-pointer rounded px-0.5 py-0.5 transition-colors duration-150
+          cursor-pointer rounded px-0.5 py-0.5 transition-colors duration-150 text-[16px]
           ${isHighlighted || showGloss
                         ? 'bg-amber-100 text-amber-900'
-                        : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'}
+                        : 'text-gray-500 hover:bg-gray-100 hover:text-gray-600'}
         `}
             >
                 {stripCantillation(word.surface)}

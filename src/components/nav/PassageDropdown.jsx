@@ -1,20 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import SearchInput from './SearchInput.jsx'
 import AutocompleteList from './AutocompleteList.jsx'
 import BookGrid from './BookGrid.jsx'
 import ChapterGrid from './ChapterGrid.jsx'
 import VersionSelector from './VersionSelector.jsx'
 import { parseSearch } from '../../data/searchParser.js'
-
-// Props:
-//   isOpen          — bool
-//   selectedBook    — string
-//   selectedChapter — number
-//   activeVersionId — string
-//   onClose         — fn()
-//   onSelectPassage — fn({ book, chapter })
-//   onSearch        — fn(rawQuery)
-//   onSelectVersion — fn(versionId)
 
 export default function PassageDropdown({
     isOpen,
@@ -29,33 +19,36 @@ export default function PassageDropdown({
     const [query, setQuery] = useState('')
     const [navBook, setNavBook] = useState(null)
     const [dropdownMode, setDropdownMode] = useState('search')
-    const overlayRef = useRef(null)
+    const [mounted, setMounted] = useState(false)
+    const [show, setShow] = useState(false)
 
     useEffect(() => {
         if (isOpen) {
+            setMounted(true)
             setQuery('')
             setNavBook(null)
             setDropdownMode('search')
+            // setTimeout guarantees browser has painted the hidden state first
+            const t = setTimeout(() => setShow(true), 10)
+            return () => clearTimeout(t)
+        } else {
+            setShow(false)
+            const t = setTimeout(() => setMounted(false), 300)
+            return () => clearTimeout(t)
         }
     }, [isOpen])
 
-    if (!isOpen) return null
+    if (!mounted) return null
 
     function handleSearchSubmit(rawQuery) {
         if (!rawQuery.trim()) return
         const parsed = parseSearch(rawQuery)
-
         if (parsed?.type === 'passage') {
-            // Single passage with no specific verse — navigate directly
             if (!parsed.verseStart) {
                 onSelectPassage({ book: parsed.book, chapter: parsed.chapter ?? 1 })
             } else {
-                // Has a specific verse — go to search so the verse is highlighted
                 onSearch(rawQuery)
             }
-        } else if (parsed?.type === 'multi-passage') {
-            // Always send to search results
-            onSearch(rawQuery)
         } else {
             onSearch(rawQuery)
         }
@@ -76,20 +69,45 @@ export default function PassageDropdown({
         onClose()
     }
 
-    function handleOverlayClick(e) {
-        if (e.target === overlayRef.current) onClose()
-    }
-
     return (
-        <div
-            ref={overlayRef}
-            onClick={handleOverlayClick}
-            className="fixed inset-0 z-50 bg-black/20"
-        >
-            <div className="bg-white border-b border-gray-100 shadow-sm w-full max-h-[85vh] overflow-y-auto">
-                {/* Search input row */}
-                <div className="px-4 pt-4 pb-3 border-b border-gray-100">
-                    <div className="flex items-center gap-3">
+        <>
+            {/* Backdrop */}
+            <div
+                onClick={onClose}
+                style={{
+                    position: 'fixed',
+                    inset: 0,
+                    top: '53px',
+                    zIndex: 30,
+                    background: 'rgba(0,0,0,0.25)',
+                    opacity: show ? 1 : 0,
+                    transition: 'opacity 300ms ease',
+                }}
+            />
+
+            {/* Panel */}
+            <div
+                style={{
+                    position: 'fixed',
+                    left: 0,
+                    right: 0,
+                    top: '53px',
+                    zIndex: 40,
+                    background: 'white',
+                    borderBottom: '1px solid #e5e7eb',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                    transform: show ? 'translateY(0)' : 'translateY(-100%)',
+                    opacity: show ? 1 : 0,
+                    transition: 'transform 300ms cubic-bezier(0.32, 0.72, 0, 1), opacity 200ms ease',
+                    maxHeight: '85vh',
+                    overflowY: 'scroll',
+                    scrollbarGutter: 'stable',
+                }}
+                className='pb-8 shadow-xl'
+            >
+                {/* Search input */}
+                <div style={{ padding: '16px 0 12px', borderBottom: '1px solid #f3f4f6' }}>
+                    <div className="max-w-2xl mx-auto px-4 flex items-center gap-3">
                         <div className="flex-1">
                             <SearchInput
                                 autoFocus
@@ -97,16 +115,16 @@ export default function PassageDropdown({
                                 onQueryChange={setQuery}
                             />
                         </div>
-                        <button
+                        {/* <button
                             onClick={onClose}
                             className="text-sm text-gray-400 hover:text-gray-700 shrink-0 transition-colors"
                         >
                             Cancel
-                        </button>
+                        </button> */}
                     </div>
                 </div>
 
-                <div className="px-4 py-3">
+                <div className="max-w-2xl mx-auto px-4 py-3">
                     {/* Tabs */}
                     <div className="flex gap-4 mb-4 border-b border-gray-100">
                         {[
@@ -128,23 +146,14 @@ export default function PassageDropdown({
                         ))}
                     </div>
 
-                    {/* Search mode */}
                     {dropdownMode === 'search' && (
-                        <AutocompleteList
-                            query={query}
-                            onSelect={handleSuggestionSelect}
-                        />
+                        <AutocompleteList query={query} onSelect={handleSuggestionSelect} />
                     )}
 
-                    {/* Browse — book grid */}
                     {dropdownMode === 'nav' && !navBook && (
-                        <BookGrid
-                            selectedBook={selectedBook}
-                            onSelectBook={handleSelectBook}
-                        />
+                        <BookGrid selectedBook={selectedBook} onSelectBook={handleSelectBook} />
                     )}
 
-                    {/* Browse — chapter grid */}
                     {dropdownMode === 'nav' && navBook && (
                         <ChapterGrid
                             book={navBook}
@@ -154,15 +163,11 @@ export default function PassageDropdown({
                         />
                     )}
 
-                    {/* Version selector */}
                     <div className="mt-4 pt-4 border-t border-gray-100">
-                        <VersionSelector
-                            activeVersionId={activeVersionId}
-                            onSelect={onSelectVersion}
-                        />
+                        <VersionSelector activeVersionId={activeVersionId} onSelect={onSelectVersion} />
                     </div>
                 </div>
             </div>
-        </div>
+        </>
     )
 }
