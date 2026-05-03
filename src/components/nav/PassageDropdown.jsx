@@ -10,11 +10,13 @@ export default function PassageDropdown({
     isOpen,
     selectedBook,
     selectedChapter,
-    activeVersionId,
+    activeVersionIds,
+    showInterlinear,
     onClose,
     onSelectPassage,
     onSearch,
-    onSelectVersion,
+    onToggleVersion,
+    onToggleInterlinear,
 }) {
     const [query, setQuery] = useState('')
     const [navBook, setNavBook] = useState(null)
@@ -28,7 +30,6 @@ export default function PassageDropdown({
             setQuery('')
             setNavBook(null)
             setDropdownMode('search')
-            // setTimeout guarantees browser has painted the hidden state first
             const t = setTimeout(() => setShow(true), 10)
             return () => clearTimeout(t)
         } else {
@@ -43,20 +44,12 @@ export default function PassageDropdown({
     function handleSearchSubmit(rawQuery) {
         if (!rawQuery.trim()) return
         const parsed = parseSearch(rawQuery)
-        if (parsed?.type === 'passage') {
-            if (!parsed.verseStart) {
-                onSelectPassage({ book: parsed.book, chapter: parsed.chapter ?? 1 })
-            } else {
-                onSearch(rawQuery)
-            }
+        if (parsed?.type === 'passage' && !parsed.verseStart) {
+            onSelectPassage({ book: parsed.book, chapter: parsed.chapter ?? 1 })
         } else {
             onSearch(rawQuery)
         }
         onClose()
-    }
-
-    function handleSuggestionSelect(suggestion) {
-        handleSearchSubmit(suggestion.query)
     }
 
     function handleSelectBook(book) {
@@ -71,28 +64,19 @@ export default function PassageDropdown({
 
     return (
         <>
-            {/* Backdrop */}
             <div
                 onClick={onClose}
                 style={{
-                    position: 'fixed',
-                    inset: 0,
-                    top: '53px',
-                    zIndex: 30,
+                    position: 'fixed', inset: 0, top: '53px', zIndex: 30,
                     background: 'rgba(0,0,0,0.25)',
                     opacity: show ? 1 : 0,
                     transition: 'opacity 300ms ease',
                 }}
             />
 
-            {/* Panel */}
             <div
                 style={{
-                    position: 'fixed',
-                    left: 0,
-                    right: 0,
-                    top: '53px',
-                    zIndex: 40,
+                    position: 'fixed', left: 0, right: 0, top: '53px', zIndex: 40,
                     background: 'white',
                     borderBottom: '1px solid #e5e7eb',
                     boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
@@ -103,68 +87,63 @@ export default function PassageDropdown({
                     overflowY: 'scroll',
                     scrollbarGutter: 'stable',
                 }}
-                className='pb-8 shadow-xl'
             >
-                {/* Search input */}
-                <div style={{ padding: '16px 0 12px', borderBottom: '1px solid #f3f4f6' }}>
-                    <div className="max-w-2xl mx-auto px-4 flex items-center gap-3">
-                        <div className="flex-1">
-                            <SearchInput
-                                autoFocus
-                                onSearch={handleSearchSubmit}
-                                onQueryChange={setQuery}
-                            />
+                <div style={{ maxWidth: '672px', margin: '0 auto', padding: '0 16px' }}>
+                    <div style={{ padding: '16px 0 12px', borderBottom: '1px solid #f3f4f6' }}>
+                        <SearchInput autoFocus onSearch={handleSearchSubmit} onQueryChange={setQuery} />
+                    </div>
+
+                    <div className="py-3">
+                        <div className="flex gap-4 mb-4 border-b border-gray-100">
+                            {[{ id: 'search', label: 'Search' }, { id: 'nav', label: 'Browse' }].map(({ id, label }) => (
+                                <button
+                                    key={id}
+                                    onClick={() => setDropdownMode(id)}
+                                    className={`pb-2 text-sm font-medium border-b-2 transition-colors -mb-px
+                    ${dropdownMode === id ? 'text-gray-900 border-gray-900' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
+                                >
+                                    {label}
+                                </button>
+                            ))}
                         </div>
-                        {/* <button
-                            onClick={onClose}
-                            className="text-sm text-gray-400 hover:text-gray-700 shrink-0 transition-colors"
-                        >
-                            Cancel
-                        </button> */}
-                    </div>
-                </div>
 
-                <div className="max-w-2xl mx-auto px-4 py-3">
-                    {/* Tabs */}
-                    <div className="flex gap-4 mb-4 border-b border-gray-100">
-                        {[
-                            { id: 'search', label: 'Search' },
-                            { id: 'nav', label: 'Browse' },
-                        ].map(({ id, label }) => (
-                            <button
-                                key={id}
-                                onClick={() => setDropdownMode(id)}
-                                className={`
-                  pb-2 text-sm font-medium border-b-2 transition-colors -mb-px
-                  ${dropdownMode === id
-                                        ? 'text-gray-900 border-gray-900'
-                                        : 'text-gray-400 border-transparent hover:text-gray-600'}
-                `}
-                            >
-                                {label}
-                            </button>
-                        ))}
-                    </div>
+                        {dropdownMode === 'search' && (
+                            <AutocompleteList query={query} onSelect={s => handleSearchSubmit(s.query)} />
+                        )}
+                        {dropdownMode === 'nav' && !navBook && (
+                            <BookGrid selectedBook={selectedBook} onSelectBook={handleSelectBook} />
+                        )}
+                        {dropdownMode === 'nav' && navBook && (
+                            <ChapterGrid
+                                book={navBook}
+                                selectedChapter={selectedBook === navBook ? selectedChapter : null}
+                                onSelectChapter={handleSelectChapter}
+                                onBack={() => setNavBook(null)}
+                            />
+                        )}
 
-                    {dropdownMode === 'search' && (
-                        <AutocompleteList query={query} onSelect={handleSuggestionSelect} />
-                    )}
+                        <div className="mt-4 pt-4 border-t border-gray-100 space-y-4">
+                            <VersionSelector
+                                activeVersionIds={activeVersionIds}
+                                onToggle={onToggleVersion}
+                            />
 
-                    {dropdownMode === 'nav' && !navBook && (
-                        <BookGrid selectedBook={selectedBook} onSelectBook={handleSelectBook} />
-                    )}
-
-                    {dropdownMode === 'nav' && navBook && (
-                        <ChapterGrid
-                            book={navBook}
-                            selectedChapter={selectedBook === navBook ? selectedChapter : null}
-                            onSelectChapter={handleSelectChapter}
-                            onBack={() => setNavBook(null)}
-                        />
-                    )}
-
-                    <div className="mt-4 pt-4 border-t border-gray-100">
-                        <VersionSelector activeVersionId={activeVersionId} onSelect={onSelectVersion} />
+                            {/* Interlinear toggle */}
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <div className="text-sm font-medium text-gray-700">Interlinear</div>
+                                    <div className="text-xs text-gray-400">Show original language below each verse</div>
+                                </div>
+                                <button
+                                    onClick={onToggleInterlinear}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200
+                    ${showInterlinear ? 'bg-gray-900' : 'bg-gray-200'}`}
+                                >
+                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200
+                    ${showInterlinear ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

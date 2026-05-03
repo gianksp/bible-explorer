@@ -1,37 +1,29 @@
-// versions.js
-// ─────────────────────────────────────────────────────────────────────────────
-// SINGLE SOURCE OF TRUTH for all Bible versions.
+// versions.js — single source of truth for all Bible versions
 //
-// To add a new English version:
+// To add a new version:
 //   1. Add an entry to VERSIONS below
-//   2. Add processing in process-bible-data.mjs (one block, ~8 lines)
-//   3. Run: node process-bible-data.mjs
-//   Done.
-//
-// To switch to a real API:
-//   Change DATA_SOURCE = 'api' in apiClient.js
-//   Done.
-// ─────────────────────────────────────────────────────────────────────────────
+//   2. Process/download the data file into public/data/
+//   Done — nothing else to change.
 
 export const VERSIONS = [
 
     // ── English translations ──────────────────────────────────────────────────
-    // Add new English versions here. Each needs a corresponding JSON file
-    // in public/data/ with shape: { "Gen.1.1": "verse text", ... }
 
     {
         versionId: 'KJV',
         label: 'KJV',
         fullName: 'King James Version (1769)',
+        description: 'The most widely read English Bible. Celebrated for its majestic prose and poetic rhythm. The standard reference for most English-language theology, commentaries, and apologetics.',
         language: 'english',
         isOriginal: false,
-        dataFile: 'kjv.json',       // public/data/kjv.json
-        isDefault: true,             // used as primary for search snippets
+        dataFile: 'kjv.json',
+        isDefault: true,
     },
     {
         versionId: 'DRC',
         label: 'DRC',
         fullName: 'Douay-Rheims Challoner (1752)',
+        description: 'The traditional Catholic English Bible, translated directly from the Latin Vulgate. Preferred by Catholics for its fidelity to the Vulgate text and inclusion of the deuterocanonical books (Apocrypha).',
         language: 'english',
         isOriginal: false,
         dataFile: 'drc.json',
@@ -39,23 +31,23 @@ export const VERSIONS = [
     },
 
     // ── Original languages ────────────────────────────────────────────────────
-    // These are always shown in verse mode — not user-selectable.
-    // Each needs a word-level JSON file with shape:
-    // { "John.1.1": [ { wordId, surface, transliteration, strongsNumber, ... } ] }
+    // Always shown in interlinear mode — not user-selectable as a translation.
 
     {
         versionId: 'GNT',
         label: 'GNT',
         fullName: 'Greek New Testament (SBLGNT)',
+        description: 'The Society of Biblical Literature Greek New Testament — a critical edition of the original Greek text of the New Testament, used by scholars worldwide.',
         language: 'greek',
         isOriginal: true,
         dataFile: 'gnt-words.json',
-        testament: 'NT',             // which testament this covers
+        testament: 'NT',
     },
     {
         versionId: 'WLC',
         label: 'WLC',
         fullName: 'Westminster Leningrad Codex',
+        description: 'The oldest complete manuscript of the Hebrew Bible (1008 AD), the standard text used in all modern Old Testament scholarship and translation.',
         language: 'hebrew',
         isOriginal: true,
         dataFile: 'ot-words.json',
@@ -70,20 +62,13 @@ export const VERSION_MAP = Object.fromEntries(
     VERSIONS.map(v => [v.versionId, v])
 )
 
-// The default version — used for search results, snippets, fallbacks
 export const DEFAULT_VERSION = VERSIONS.find(v => v.isDefault) ?? VERSIONS[0]
 export const DEFAULT_VERSION_ID = DEFAULT_VERSION.versionId
 
-// English translations only (shown in version picker)
 export const ENGLISH_VERSIONS = VERSIONS.filter(v => !v.isOriginal)
-
-// Original language versions (shown automatically in verse mode)
 export const ORIGINAL_VERSIONS = VERSIONS.filter(v => v.isOriginal)
-
-// Just the IDs of original versions (used throughout apiClient)
 export const ORIGINAL_VERSION_IDS = ORIGINAL_VERSIONS.map(v => v.versionId)
 
-// Get the original language version for a given testament
 export function getOriginalForTestament(isOT) {
     return ORIGINAL_VERSIONS.find(v => v.testament === (isOT ? 'OT' : 'NT')) ?? null
 }
