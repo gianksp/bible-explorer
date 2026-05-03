@@ -3,6 +3,7 @@
 //   versionId      — string
 //   highlightTerms — string[] (optional, for search results)
 
+import { EnglishText } from "./EnglishText"
 import { VerseNum } from "./VerseNum"
 
 export default function ReaderView({ verses, versionId, highlightTerms = [] }) {
@@ -11,22 +12,17 @@ export default function ReaderView({ verses, versionId, highlightTerms = [] }) {
     return (
         <div className="max-w-2xl mx-auto px-6 py-10">
             {/* <div className="pl-9"> */}
-                {verses.map(verse => {
-                    const { verseId, verse: verseNum, versions } = verse
-                    const text = versions[versionId]?.text ?? ''
+            {verses.map(verse => {
+                const { verseId, verse: verseNum, versions } = verse
+                const text = versions[versionId]?.text ?? ''
 
-                    return (
-                        <span key={verseId}>
-                            <VerseNum verseNum={verseNum} />
-                            <span className="text-[17px] text-gray-800 leading-8">
-                                {highlightTerms.length > 0
-                                    ? highlightText(text, highlightTerms)
-                                    : text
-                                }{' '}
-                            </span>
-                        </span>
-                    )
-                })}
+                return (
+                    <p key={verseId} className="text-[17px] leading-8 text-gray-800 mb-4">
+                        <VerseNum verseNum={verseNum} />
+                        <EnglishText text={text} highlightTerms={highlightTerms} />
+                    </p>
+                )
+            })}
             {/* </div> */}
         </div>
     )
