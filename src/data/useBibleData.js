@@ -1,7 +1,7 @@
 // useBibleData.js
-// React hooks wrapping apiClient functions.
-// Every hook returns { data, isLoading, error } — consistent contract.
-// Components never touch apiClient directly.
+// React hooks wrapping apiClient + appStore.
+// Every hook returns { data, isLoading, error }
+// Components never fetch directly.
 
 import { useState, useEffect, useCallback } from 'react'
 import {
@@ -12,6 +12,7 @@ import {
     fetchStrongsOccurrences,
     fetchDailyReadings,
 } from './apiClient.js'
+import { getAppData } from './appStore.js'
 
 // ── Generic fetch hook ────────────────────────────────────────────────────────
 
@@ -44,6 +45,14 @@ function useFetch(fetchFn, deps) {
     }, [serializedDeps])
 
     return { data, isLoading, error }
+}
+
+// ── useAppData ────────────────────────────────────────────────────────────────
+// Returns all books + versions in one call.
+// Fetches once, cached in appStore — safe to call from multiple components.
+
+export function useAppData() {
+    return useFetch(() => getAppData(), [])
 }
 
 // ── useVersions ───────────────────────────────────────────────────────────────
@@ -91,8 +100,6 @@ export function useStrongsOccurrences(strongsNumber, activeVersionIds = []) {
 }
 
 // ── useDailyReadings ──────────────────────────────────────────────────────────
-// Fetches today's Catholic Mass readings.
-// data shape: { season, celebration, suggestions: [ { label, query, type, group } ] }
 
 export function useDailyReadings() {
     return useFetch(() => fetchDailyReadings(), [])

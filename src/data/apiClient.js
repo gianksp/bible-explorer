@@ -1,66 +1,17 @@
 // apiClient.js
-// ─────────────────────────────────────────────────────────────────────────────
-// All data fetching goes through here.
+// All data fetching. Components never fetch directly — use useBibleData.js hooks.
 //
-// DATA_SOURCE = 'json' → reads from public/data/*.json files
-// DATA_SOURCE = 'api'  → hits REST API at API_BASE_URL
-//
-// To add a new Bible version: edit versions.js only.
-// To switch to a real API: change DATA_SOURCE to 'api' and set API_BASE_URL.
-// ─────────────────────────────────────────────────────────────────────────────
+// DATA_SOURCE:
+//   'api'  — REST API (default)
+//   'json' — local JSON files in public/data/ (fallback / offline)
 
 import { parseSearch, normalizeBookName } from './searchParser.js'
-import {
-    VERSIONS,
-    ENGLISH_VERSIONS,
-    DEFAULT_VERSION,
-    getOriginalForTestament,
-} from './versions.js'
+import { getAppData, getBooks, getVersions, resolveBookId } from './appStore.js'
 
-const DATA_SOURCE = 'json'
-const API_BASE_URL = 'https://your-api.com/v1'
+const DATA_SOURCE = 'api'
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8787'
 
-// ── Book maps ─────────────────────────────────────────────────────────────────
-
-const OT_BOOK_IDS = new Set([
-    'Gen', 'Ex', 'Lev', 'Num', 'Deut', 'Josh', 'Judg', 'Ruth',
-    '1Sam', '2Sam', '1Kgs', '2Kgs', '1Chr', '2Chr', 'Ezra', 'Neh',
-    'Esth', 'Job', 'Ps', 'Prov', 'Eccl', 'Song', 'Isa', 'Jer',
-    'Lam', 'Ezek', 'Dan', 'Hos', 'Joel', 'Amos', 'Obad', 'Jonah',
-    'Mic', 'Nah', 'Hab', 'Zeph', 'Hag', 'Zech', 'Mal',
-    '1Esd', '2Esd', 'Tob', 'Jdt', 'AddEst', 'Wis', 'Sir', 'Bar',
-    'PrAzar', 'Sus', 'Bel', 'PrMan', '1Macc', '2Macc',
-])
-
-const BOOK_NAME_TO_ID = {
-    'Genesis': 'Gen', 'Exodus': 'Ex', 'Leviticus': 'Lev', 'Numbers': 'Num',
-    'Deuteronomy': 'Deut', 'Joshua': 'Josh', 'Judges': 'Judg', 'Ruth': 'Ruth',
-    '1 Samuel': '1Sam', '2 Samuel': '2Sam', '1 Kings': '1Kgs', '2 Kings': '2Kgs',
-    '1 Chronicles': '1Chr', '2 Chronicles': '2Chr', 'Ezra': 'Ezra', 'Nehemiah': 'Neh',
-    'Esther': 'Esth', 'Job': 'Job', 'Psalms': 'Ps', 'Proverbs': 'Prov',
-    'Ecclesiastes': 'Eccl', 'Song of Solomon': 'Song', 'Isaiah': 'Isa',
-    'Jeremiah': 'Jer', 'Lamentations': 'Lam', 'Ezekiel': 'Ezek', 'Daniel': 'Dan',
-    'Hosea': 'Hos', 'Joel': 'Joel', 'Amos': 'Amos', 'Obadiah': 'Obad',
-    'Jonah': 'Jonah', 'Micah': 'Mic', 'Nahum': 'Nah', 'Habakkuk': 'Hab',
-    'Zephaniah': 'Zeph', 'Haggai': 'Hag', 'Zechariah': 'Zech', 'Malachi': 'Mal',
-    '1 Esdras': '1Esd', '2 Esdras': '2Esd', 'Tobit': 'Tob', 'Judith': 'Jdt',
-    'Additions to Esther': 'AddEst', 'Wisdom': 'Wis', 'Sirach': 'Sir', 'Baruch': 'Bar',
-    'Prayer of Azariah': 'PrAzar', 'Susanna': 'Sus', 'Bel and the Dragon': 'Bel',
-    'Prayer of Manasses': 'PrMan', '1 Maccabees': '1Macc', '2 Maccabees': '2Macc',
-    'Matthew': 'Matt', 'Mark': 'Mark', 'Luke': 'Luke', 'John': 'John',
-    'Acts': 'Acts', 'Romans': 'Rom', '1 Corinthians': '1Cor', '2 Corinthians': '2Cor',
-    'Galatians': 'Gal', 'Ephesians': 'Eph', 'Philippians': 'Phil', 'Colossians': 'Col',
-    '1 Thessalonians': '1Th', '2 Thessalonians': '2Th', '1 Timothy': '1Tim',
-    '2 Timothy': '2Tim', 'Titus': 'Titus', 'Philemon': 'Phlm', 'Hebrews': 'Heb',
-    'James': 'Jas', '1 Peter': '1Pet', '2 Peter': '2Pet', '1 John': '1Jn',
-    '2 John': '2Jn', '3 John': '3Jn', 'Jude': 'Jude', 'Revelation': 'Rev',
-}
-
-const ID_TO_BOOK_NAME = Object.fromEntries(
-    Object.entries(BOOK_NAME_TO_ID).map(([name, id]) => [id, name])
-)
-
-// ── JSON cache ────────────────────────────────────────────────────────────────
+// ── JSON cache (json mode only) ───────────────────────────────────────────────
 
 const jsonCache = {}
 
@@ -80,62 +31,106 @@ async function apiFetch(endpoint, params = {}) {
     Object.entries(params).forEach(([k, v]) => {
         if (v != null) url.searchParams.set(k, String(v))
     })
-    const res = await fetch(url.toString(), {
-        headers: { 'Content-Type': 'application/json' },
-    })
+    const res = await fetch(url.toString())
     if (!res.ok) throw new Error(`API ${res.status} on ${endpoint}`)
     return res.json()
+}
+
+// ── Map API passage response → app shape ──────────────────────────────────────
+
+async function mapApiPassage(data, bookName) {
+    const { idToName, otBookIds } = await getBooks()
+    const { englishVersions, originalVersions } = await getVersions()
+
+    return data.verses.map(v => {
+        const isOT = otBookIds.has(v.book_id)
+        const originalVersion = originalVersions.find(o =>
+            o.testament === (isOT ? 'OT' : 'NT')
+        )
+        const versions = {}
+
+        // English translations
+        englishVersions.forEach(ev => {
+            const text = v[ev.versionId.toLowerCase()]
+            if (text) versions[ev.versionId] = { text }
+        })
+
+        // Original language words
+        const verseWords = data.words?.[v.verse_id]
+        if (verseWords?.length && originalVersion) {
+            const mappedWords = verseWords.map(w => ({
+                wordId: w.word_id,
+                surface: w.surface,
+                transliteration: w.transliteration,
+                strongsNumber: w.strongs,
+                morphology: w.morphology,
+                englishGloss: w.gloss,
+                definition: w.definition,
+            }))
+            versions[originalVersion.versionId] = {
+                text: mappedWords.map(w => w.surface).join(' '),
+                words: mappedWords,
+            }
+        }
+
+        return {
+            verseId: v.verse_id,
+            book: idToName[v.book_id] ?? bookName,
+            chapter: v.chapter,
+            verse: v.verse,
+            versions,
+        }
+    })
 }
 
 // ── Versions ──────────────────────────────────────────────────────────────────
 
 export async function fetchVersions() {
-    if (DATA_SOURCE === 'json') return VERSIONS
-    return apiFetch('/versions')
+    const { versions } = await getVersions()
+    return versions
 }
 
 // ── Passage ───────────────────────────────────────────────────────────────────
-//
-// Returns array of verse objects:
-// {
-//   verseId:  'John.1.1',
-//   book:     'John',
-//   chapter:  1,
-//   verse:    1,
-//   versions: {
-//     KJV: { text: '...' },
-//     DRC: { text: '...' },
-//     GNT: { text: '...', words: [ wordObj, ... ] },
-//   }
-// }
 
 export async function fetchPassage({ book, chapter, verseStart = null, verseEnd = null, activeVersionIds = [] }) {
     if (DATA_SOURCE === 'json') return fetchPassageJSON({ book, chapter, verseStart, verseEnd })
-    return apiFetch('/passage', { book, chapter, verseStart, verseEnd, versions: activeVersionIds.join(',') })
+
+    const { originalVersions } = await getVersions()
+    const originalIds = new Set(originalVersions.map(v => v.versionId))
+
+    const versions = activeVersionIds
+        .filter(id => !originalIds.has(id))
+        .map(id => id.toLowerCase())
+        .join(',') || 'kjv'
+
+    const bookId = await resolveBookId(book)
+    if (!bookId) throw new Error(`Unknown book: ${book}`)
+
+    const data = await apiFetch('/passage', { book: bookId, chapter, verseStart, verseEnd, versions })
+    return mapApiPassage(data, book)
 }
 
 async function fetchPassageJSON({ book, chapter, verseStart, verseEnd }) {
+    const { nameToId, otBookIds } = await getBooks()
+    const { englishVersions, originalVersions } = await getVersions()
+
     const canonicalBook = normalizeBookName(book)
-    const bookId = BOOK_NAME_TO_ID[canonicalBook]
+    const bookId = nameToId[canonicalBook]
     if (!bookId) throw new Error(`Unknown book: ${book}`)
 
-    const isOT = OT_BOOK_IDS.has(bookId)
+    const isOT = otBookIds.has(bookId)
     const chapterId = `${bookId}.${chapter}`
-    const originalVersion = getOriginalForTestament(isOT)
+    const originalVersion = originalVersions.find(o => o.testament === (isOT ? 'OT' : 'NT'))
 
-    // Load chapter index + all English versions + original language in parallel
     const [chapterIndex, ...versionData] = await Promise.all([
         loadJSON('chapter-index.json'),
-        ...ENGLISH_VERSIONS.map(v => loadJSON(v.dataFile).catch(() => ({}))),
-        originalVersion
-            ? loadJSON(originalVersion.dataFile).catch(() => ({}))
-            : Promise.resolve({}),
+        ...englishVersions.map(v => loadJSON(v.dataFile).catch(() => ({}))),
+        originalVersion ? loadJSON(originalVersion.dataFile).catch(() => ({})) : Promise.resolve({}),
     ])
 
-    const englishData = versionData.slice(0, ENGLISH_VERSIONS.length)
-    const originalWords = versionData[ENGLISH_VERSIONS.length] ?? {}
+    const englishData = versionData.slice(0, englishVersions.length)
+    const originalWords = versionData[englishVersions.length] ?? {}
 
-    // Filter to requested verse range
     const verseIds = (chapterIndex[chapterId] ?? []).filter(id => {
         const n = parseInt(id.split('.')[2])
         if (verseStart !== null && verseEnd !== null) return n >= verseStart && n <= verseEnd
@@ -145,15 +140,11 @@ async function fetchPassageJSON({ book, chapter, verseStart, verseEnd }) {
 
     return verseIds.map(id => {
         const verseNum = parseInt(id.split('.')[2])
-
-        // Build versions object — include all English versions that have this verse
         const versions = {}
-        ENGLISH_VERSIONS.forEach((v, i) => {
+        englishVersions.forEach((v, i) => {
             const text = englishData[i][id]
             if (text) versions[v.versionId] = { text }
         })
-
-        // Attach original language words if available
         const words = originalWords[id]
         if (words?.length && originalVersion) {
             versions[originalVersion.versionId] = {
@@ -161,7 +152,6 @@ async function fetchPassageJSON({ book, chapter, verseStart, verseEnd }) {
                 words,
             }
         }
-
         return { verseId: id, book: canonicalBook, chapter, verse: verseNum, versions }
     })
 }
@@ -173,10 +163,43 @@ export async function fetchSearch({ rawQuery, activeVersionIds = [] }) {
     if (!parsed) return []
 
     if (DATA_SOURCE === 'json') return jsonSearch(parsed)
-    return apiFetch('/search', { q: rawQuery, type: parsed.type, versions: activeVersionIds.join(',') })
+
+    if (parsed.type === 'keyword' || parsed.type === 'strongs') {
+        const versions = activeVersionIds.map(id => id.toLowerCase()).join(',') || 'kjv'
+        const q = parsed.type === 'strongs'
+            ? `${parsed.language === 'greek' ? 'G' : 'H'}${parsed.number}`
+            : rawQuery
+        const data = await apiFetch('/search', { q, type: parsed.type, versions })
+        return data.results ?? []
+    }
+
+    if (parsed.type === 'passage') {
+        const verses = await fetchPassage({
+            book: parsed.book, chapter: parsed.chapter,
+            verseStart: parsed.verseStart, verseEnd: parsed.verseEnd, activeVersionIds,
+        })
+        return versesToResults(verses)
+    }
+
+    if (parsed.type === 'multi-passage') {
+        const all = await Promise.all(
+            parsed.passages.map(p =>
+                fetchPassage({
+                    book: p.book, chapter: p.chapter,
+                    verseStart: p.verseStart, verseEnd: p.verseEnd, activeVersionIds
+                }).catch(() => [])
+            )
+        )
+        return versesToResults(all.flat())
+    }
+
+    return []
 }
 
 async function jsonSearch(parsed) {
+    const { idToName } = await getBooks()
+    const { defaultVersion, englishVersions, originalVersions } = await getVersions()
+
     if (parsed.type === 'passage') {
         return versesToResults(await fetchPassageJSON({
             book: parsed.book, chapter: parsed.chapter,
@@ -187,8 +210,10 @@ async function jsonSearch(parsed) {
     if (parsed.type === 'multi-passage') {
         const all = await Promise.all(
             parsed.passages.map(p =>
-                fetchPassageJSON({ book: p.book, chapter: p.chapter, verseStart: p.verseStart, verseEnd: p.verseEnd })
-                    .catch(() => [])
+                fetchPassageJSON({
+                    book: p.book, chapter: p.chapter,
+                    verseStart: p.verseStart, verseEnd: p.verseEnd
+                }).catch(() => [])
             )
         )
         return versesToResults(all.flat())
@@ -197,18 +222,19 @@ async function jsonSearch(parsed) {
     if (parsed.type === 'strongs') {
         const isGreek = parsed.language === 'greek'
         const sn = `${isGreek ? 'G' : 'H'}${parsed.number}`
+        const origFile = isGreek ? 'gnt-words.json' : 'ot-words.json'
         const [words, primaryVerses] = await Promise.all([
-            loadJSON(isGreek ? 'gnt-words.json' : 'ot-words.json').catch(() => ({})),
-            loadJSON(DEFAULT_VERSION.dataFile),
+            loadJSON(origFile).catch(() => ({})),
+            loadJSON(defaultVersion.dataFile),
         ])
         return Object.entries(words)
             .filter(([, ws]) => ws.some(w => w.strongsNumber === sn))
             .slice(0, 200)
-            .map(([id]) => verseIdToResult(id, primaryVerses[id] ?? '', [sn]))
+            .map(([id]) => verseIdToResult(id, primaryVerses[id] ?? '', [sn], idToName, defaultVersion))
     }
 
     if (parsed.type === 'keyword') {
-        const primaryVerses = await loadJSON(DEFAULT_VERSION.dataFile)
+        const primaryVerses = await loadJSON(defaultVersion.dataFile)
         const { terms, excludeTerms, operator } = parsed
         return Object.entries(primaryVerses)
             .filter(([, text]) => {
@@ -219,7 +245,7 @@ async function jsonSearch(parsed) {
                     : terms.every(t => lower.includes(t))
             })
             .slice(0, 100)
-            .map(([id, text]) => verseIdToResult(id, text, parsed.terms))
+            .map(([id, text]) => verseIdToResult(id, text, parsed.terms, idToName, defaultVersion))
     }
 
     return []
@@ -234,110 +260,91 @@ export async function fetchStrongs(strongsNumber) {
         const dict = await loadJSON(isGreek ? 'strongs-greek.json' : 'strongs-hebrew.json').catch(() => ({}))
         return dict[strongsNumber] ?? null
     }
-    return apiFetch(`/strongs/${strongsNumber}`)
+    const data = await apiFetch(`/strongs/${strongsNumber}`)
+    return {
+        strongsNumber: data.number,
+        language: data.language,
+        transliteration: data.transliteration,
+        definition: data.definition,
+        shortDef: data.short_def,
+    }
 }
 
 export async function fetchStrongsOccurrences(strongsNumber, activeVersionIds = []) {
     if (!strongsNumber) return []
     if (DATA_SOURCE === 'json') {
+        const { idToName } = await getBooks()
+        const { defaultVersion } = await getVersions()
         const isGreek = strongsNumber.startsWith('G')
         const [words, primaryVerses] = await Promise.all([
             loadJSON(isGreek ? 'gnt-words.json' : 'ot-words.json').catch(() => ({})),
-            loadJSON(DEFAULT_VERSION.dataFile),
+            loadJSON(defaultVersion.dataFile),
         ])
         return Object.entries(words)
             .filter(([, ws]) => ws.some(w => w.strongsNumber === strongsNumber))
             .slice(0, 200)
-            .map(([id]) => verseIdToResult(id, primaryVerses[id] ?? '', [strongsNumber]))
+            .map(([id]) => verseIdToResult(id, primaryVerses[id] ?? '', [strongsNumber], idToName, defaultVersion))
     }
-    return apiFetch(`/strongs/${strongsNumber}/occurrences`, { versions: activeVersionIds.join(',') })
+    const data = await apiFetch(`/strongs/${strongsNumber}/occurrences`)
+    return data.results ?? []
+}
+
+// ── Daily Readings ────────────────────────────────────────────────────────────
+
+function readingToQuery(ref) {
+    return ref.replace(/([0-9])[a-z](\s|$)/gi, '$1$2').trim()
+}
+
+export async function fetchDailyReadings() {
+    const url = DATA_SOURCE === 'api'
+        ? `${API_BASE_URL}/daily`
+        : (() => {
+            const today = new Date()
+            const month = String(today.getMonth() + 1).padStart(2, '0')
+            const day = String(today.getDate()).padStart(2, '0')
+            return `https://cpbjr.github.io/catholic-readings-api/readings/${today.getFullYear()}/${month}-${day}.json`
+        })()
+
+    const res = await fetch(url)
+    if (!res.ok) throw new Error('Daily readings not available')
+    const data = await res.json()
+    if (!data?.readings) throw new Error('No readings data')
+
+    const { firstReading, psalm, secondReading, gospel } = data.readings
+    const suggestions = []
+
+    if (firstReading) suggestions.push({ label: `First Reading · ${firstReading}`, query: readingToQuery(firstReading), type: 'daily', group: "Today's Mass" })
+    if (psalm) suggestions.push({ label: `Psalm · ${psalm.split(',')[0]}`, query: readingToQuery(psalm.split(',')[0]), type: 'daily', group: "Today's Mass" })
+    if (secondReading) suggestions.push({ label: `Second Reading · ${secondReading}`, query: readingToQuery(secondReading), type: 'daily', group: "Today's Mass" })
+    if (gospel) suggestions.push({ label: `Gospel · ${gospel}`, query: readingToQuery(gospel), type: 'daily', group: "Today's Mass" })
+
+    return { season: data.season ?? '', celebration: data.celebration?.name ?? null, suggestions }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function versesToResults(verses) {
+async function versesToResults(verses) {
+    const { defaultVersion } = await getVersions()
     return verses.map(v => ({
         verseId: v.verseId,
         book: v.book,
         chapter: v.chapter,
         verse: v.verse,
-        snippet: v.versions[DEFAULT_VERSION.versionId]?.text ?? '',
+        snippet: v.versions[defaultVersion.versionId]?.text ?? '',
         matchedTerms: [],
-        versionId: DEFAULT_VERSION.versionId,
+        versionId: defaultVersion.versionId,
     }))
 }
 
-function verseIdToResult(id, snippet, matchedTerms) {
+function verseIdToResult(id, snippet, matchedTerms, idToName, defaultVersion) {
     const [bookId, chapter, verse] = id.split('.')
     return {
         verseId: id,
-        book: ID_TO_BOOK_NAME[bookId] ?? bookId,
+        book: idToName?.[bookId] ?? bookId,
         chapter: parseInt(chapter),
         verse: parseInt(verse),
         snippet,
         matchedTerms,
-        versionId: DEFAULT_VERSION.versionId,
-    }
-}
-
-// Add this function to the bottom of apiClient.js
-
-// ── Daily Readings ────────────────────────────────────────────────────────────
-// Fetches today's Catholic Mass readings from the free USCCB-based API.
-// Returns suggestions ready for AutocompleteList.
-
-function readingToQuery(ref) {
-    // Strip trailing letter qualifiers like "18b" → "18"
-    return ref.replace(/([0-9])[a-z](\s|$)/gi, '$1$2').trim()
-}
-
-export async function fetchDailyReadings() {
-    const today = new Date()
-    const month = String(today.getMonth() + 1).padStart(2, '0')
-    const day = String(today.getDate()).padStart(2, '0')
-    const year = today.getFullYear()
-    const url = `https://cpbjr.github.io/catholic-readings-api/readings/${year}/${month}-${day}.json`
-
-    const res = await fetch(url)
-    if (!res.ok) throw new Error(`Daily readings not available for ${year}-${month}-${day}`)
-    const data = await res.json()
-
-    if (!data?.readings) throw new Error('No readings data')
-
-    const suggestions = []
-    const { firstReading, psalm, secondReading, gospel } = data.readings
-
-    if (firstReading) suggestions.push({
-        label: `First Reading · ${firstReading}`,
-        query: readingToQuery(firstReading),
-        type: 'daily',
-        group: "Today's Mass",
-    })
-
-    if (psalm) suggestions.push({
-        label: `Psalm · ${psalm.split(',')[0]}`,
-        query: readingToQuery(psalm.split(',')[0]),
-        type: 'daily',
-        group: "Today's Mass",
-    })
-
-    if (secondReading) suggestions.push({
-        label: `Second Reading · ${secondReading}`,
-        query: readingToQuery(secondReading),
-        type: 'daily',
-        group: "Today's Mass",
-    })
-
-    if (gospel) suggestions.push({
-        label: `Gospel · ${gospel}`,
-        query: readingToQuery(gospel),
-        type: 'daily',
-        group: "Today's Mass",
-    })
-
-    return {
-        season: data.season ?? '',
-        celebration: data.celebration?.name ?? null,
-        suggestions,
+        versionId: defaultVersion.versionId,
     }
 }

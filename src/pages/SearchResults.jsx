@@ -1,23 +1,23 @@
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { useState, useMemo }            from 'react'
-import { useSearch, usePassage }        from '../data/useBibleData.js'
-import { DEFAULT_VERSION_ID }           from '../data/versions.js'
-import TopBar                           from '../components/header/TopBar.jsx'
-import PassageDropdown                  from '../components/header/PassageDropdown.jsx'
-import PassageView                      from '../components/canvas/PassageView.jsx'
-import LoadingState                     from '../components/ui/LoadingState.jsx'
-import ErrorState                       from '../components/ui/ErrorState.jsx'
-import EmptyState                       from '../components/ui/EmptyState.jsx'
-import SectionLabel                     from '../components/ui/SectionLabel.jsx'
+import { useState, useMemo } from 'react'
+import { useSearch } from '../data/useBibleData.js'
+import { DEFAULT_VERSION_ID } from '../data/versions.js'
+import TopBar from '../components/header/TopBar.jsx'
+import PassageDropdown from '../components/header/PassageDropdown.jsx'
+import PassageView from '../components/canvas/PassageView.jsx'
+import LoadingState from '../components/ui/LoadingState.jsx'
+import ErrorState from '../components/ui/ErrorState.jsx'
+import EmptyState from '../components/ui/EmptyState.jsx'
+import SectionLabel from '../components/ui/SectionLabel.jsx'
 
 export default function SearchResults() {
-  const [searchParams]                          = useSearchParams()
-  const navigate                                = useNavigate()
-  const rawQuery                                = searchParams.get('q') ?? ''
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const rawQuery = searchParams.get('q') ?? ''
 
   const [activeVersionIds, setActiveVersionIds] = useState([DEFAULT_VERSION_ID])
-  const [showInterlinear,  setShowInterlinear]  = useState(false)
-  const [dropdownOpen,     setDropdownOpen]     = useState(false)
+  const [showInterlinear, setShowInterlinear] = useState(false)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
 
   const { data: results, isLoading, error } = useSearch({
     rawQuery,
@@ -40,21 +40,25 @@ export default function SearchResults() {
     )
   }
 
+  // Group results by book+chapter — preserve API order (canonical)
   const chapterGroups = useMemo(() => {
     if (!results?.length) return []
-    const map = {}
+    const map = new Map()
     for (const result of results) {
       const key = `${result.book}||${result.chapter}`
-      if (!map[key]) map[key] = { book: result.book, chapter: result.chapter, verses: [] }
-      map[key].verses.push(parseInt(result.verse))
+      if (!map.has(key)) map.set(key, {
+        book: result.book,
+        chapter: result.chapter,
+        verses: [],
+      })
+      map.get(key).verses.push(result)
     }
-    return Object.values(map)
+    return [...map.values()]
   }, [results])
 
   const versionLabel = activeVersionIds.length === 1
     ? activeVersionIds[0]
-    : activeVersionIds.length === 0
-      ? 'Original'
+    : activeVersionIds.length === 0 ? 'Original'
       : activeVersionIds.join(' · ')
 
   return (
@@ -82,13 +86,13 @@ export default function SearchResults() {
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-2xl mx-auto px-6 py-8">
           {isLoading && <LoadingState message="Searching…" />}
-          {error     && <ErrorState message={error} />}
+          {error && <ErrorState message={error} />}
 
           {!isLoading && results?.length === 0 && (
             <EmptyState message={`No results found for "${rawQuery}"`} />
           )}
 
-          {!isLoading && results && results.length > 0 && (
+          {!isLoading && results?.length > 0 && (
             <>
               <SectionLabel
                 label={`${results.length} result${results.length !== 1 ? 's' : ''} for "${rawQuery}"`}
@@ -99,13 +103,8 @@ export default function SearchResults() {
                     key={`${group.book}-${group.chapter}`}
                     book={group.book}
                     chapter={group.chapter}
-                    verseNumbers={group.verses}
-                    activeVersionIds={activeVersionIds}
+                    verses={group.verses}
                     showInterlinear={showInterlinear}
-                    matchedTerms={results
-                      .filter(r => r.book === group.book && r.chapter === group.chapter)
-                      .flatMap(r => r.matchedTerms ?? [])
-                    }
                     onNavigate={() => navigate(
                       `/?book=${encodeURIComponent(group.book)}&chapter=${group.chapter}`
                     )}
@@ -120,54 +119,45 @@ export default function SearchResults() {
   )
 }
 
-function ChapterResultGroup({
-  book, chapter, verseNumbers,
-  activeVersionIds, showInterlinear,
-  matchedTerms, onNavigate,
-}) {
-  const { data: verses, isLoading } = usePassage({
-    book, chapter,
-    verseStart: null, verseEnd: null,
-    activeVersionIds,
-  })
+// Build verse objects from search result snippets — no extra API calls needed
+function buildVerseObjects(verses) {
+  return verses.map(r => ({
+    verseId: r.verseId,
+    book: r.book,
+    chapter: r.chapter,
+    verse: r.verse,
+    versions: {
+      [r.versionId]: { text: r.snippet },
+    },
+  }))
+}
 
-  const matchedVerses = useMemo(() => {
-    if (!verses) return []
-    return verses.filter(v => verseNumbers.includes(parseInt(v.verse)))
-  }, [verses, verseNumbers])
-
-  if (isLoading) return (
-    <div className="mb-8">
-      <GroupHeader book={book} chapter={chapter} onNavigate={onNavigate} />
-      <LoadingState />
-    </div>
+function ChapterResultGroup({ book, chapter, verses, showInterlinear, onNavigate }) {
+  const verseObjects = useMemo(() => buildVerseObjects(verses), [verses])
+  const matchedTerms = useMemo(() =>
+    [...new Set(verses.flatMap(v => v.matchedTerms ?? []))],
+    [verses]
   )
-
-  if (!matchedVerses.length) return null
+  const primaryVersion = verses[0]?.versionId ?? 'KJV'
 
   return (
     <div className="mb-10">
-      <GroupHeader book={book} chapter={chapter} onNavigate={onNavigate} />
+      <button
+        onClick={onNavigate}
+        className="flex items-center gap-1 mb-1 group"
+      >
+        <span className="text-xs font-medium text-gray-400 uppercase tracking-widest group-hover:text-blue-500 transition-colors">
+          {book} {chapter}
+        </span>
+        <span className="text-xs text-gray-300 group-hover:text-blue-400 transition-colors">→</span>
+      </button>
+
       <PassageView
-        verses={matchedVerses}
-        versionIds={activeVersionIds}
+        verses={verseObjects}
+        versionIds={[primaryVersion]}
         showInterlinear={showInterlinear}
         highlightTerms={matchedTerms}
       />
     </div>
-  )
-}
-
-function GroupHeader({ book, chapter, onNavigate }) {
-  return (
-    <button
-      onClick={onNavigate}
-      className="flex items-center gap-1 mb-1 group"
-    >
-      <span className="text-xs font-medium text-gray-400 uppercase tracking-widest group-hover:text-blue-500 transition-colors">
-        {book} {chapter}
-      </span>
-      <span className="text-xs text-gray-300 group-hover:text-blue-400 transition-colors">→</span>
-    </button>
   )
 }
