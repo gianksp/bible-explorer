@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import BibleReader from './pages/BibleReader.jsx'
 import SearchResults from './pages/SearchResults.jsx'
-import WordStudy from './pages/WordStudy.jsx'
 
 export default function App() {
   return (
@@ -9,7 +8,6 @@ export default function App() {
       <Routes>
         <Route path="/" element={<BibleReader />} />
         <Route path="/search" element={<SearchResults />} />
-        <Route path="/word/:strongsNumber" element={<WordStudy />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

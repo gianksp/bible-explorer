@@ -57,7 +57,7 @@ export default function BookGrid({ selectedBook, onSelectBook }) {
 function BookSection({ label, books, selectedBook, onSelectBook }) {
     return (
         <div className="mb-4">
-            <div className="px-1 py-2 text-[10px] uppercase tracking-widest text-gray-400">
+            <div className="text-sm font-medium text-gray-400 mb-4">
                 {label}
             </div>
             <div className="grid grid-cols-3 md:grid-cols-4 gap-1">
@@ -66,7 +66,7 @@ function BookSection({ label, books, selectedBook, onSelectBook }) {
                         key={book}
                         onClick={() => onSelectBook(book)}
                         className={`
-              text-left px-3 py-2 rounded-lg text-sm transition-colors truncate
+              text-left px-3 py-2 rounded-lg text-sm transition-colors truncate cursor-pointer
               ${selectedBook === book
                                 ? 'bg-gray-900 text-white'
                                 : 'text-gray-700 hover:bg-gray-100'}

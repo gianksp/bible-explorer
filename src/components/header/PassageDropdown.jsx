@@ -5,6 +5,7 @@ import BookGrid from './BookGrid.jsx'
 import ChapterGrid from './ChapterGrid.jsx'
 import VersionSelector from './VersionSelector.jsx'
 import { parseSearch } from '../../data/searchParser.js'
+import { DropdownToggleButton } from '../ui/ToggleButton.jsx'
 
 export default function PassageDropdown({
     isOpen,
@@ -29,7 +30,7 @@ export default function PassageDropdown({
             setMounted(true)
             setQuery('')
             setNavBook(null)
-            setDropdownMode('search')
+            setDropdownMode('translation')
             const t = setTimeout(() => setShow(true), 10)
             return () => clearTimeout(t)
         } else {
@@ -67,7 +68,7 @@ export default function PassageDropdown({
             <div
                 onClick={onClose}
                 style={{
-                    position: 'fixed', inset: 0, top: '53px', zIndex: 30,
+                    position: 'fixed', inset: 0, top: '44px', zIndex: 30,
                     background: 'rgba(0,0,0,0.25)',
                     opacity: show ? 1 : 0,
                     transition: 'opacity 300ms ease',
@@ -76,7 +77,7 @@ export default function PassageDropdown({
 
             <div
                 style={{
-                    position: 'fixed', left: 0, right: 0, top: '53px', zIndex: 40,
+                    position: 'fixed', left: 0, right: 0, top: '44px', zIndex: 40,
                     background: 'white',
                     borderBottom: '1px solid #e5e7eb',
                     boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
@@ -86,29 +87,65 @@ export default function PassageDropdown({
                     maxHeight: '85vh',
                     overflowY: 'scroll',
                     scrollbarGutter: 'stable',
+                    paddingBottom: '32px'
                 }}
             >
                 <div style={{ maxWidth: '672px', margin: '0 auto', padding: '0 16px' }}>
-                    <div style={{ padding: '16px 0 12px', borderBottom: '1px solid #f3f4f6' }}>
+
+
+
+
+                    <div className="space-y-4 mb-4 mt-8">
+
                         <SearchInput autoFocus onSearch={handleSearchSubmit} onQueryChange={setQuery} />
+                        {/* 
+                        <div className="border-t border-gray-200 my-4" />
+
+                        <DropdownToggleButton onToggle={onToggleInterlinear} isActive={showInterlinear} title="Show Original Language" />
+
+                        <div className="border-t border-gray-200 my-4" />
+
+                        <VersionSelector activeVersionIds={activeVersionIds} onToggle={onToggleVersion} /> */}
+
                     </div>
 
-                    <div className="py-3">
+                    <div>
+
+
+
                         <div className="flex gap-4 mb-4 border-b border-gray-100">
-                            {[{ id: 'search', label: 'Search' }, { id: 'nav', label: 'Browse' }].map(({ id, label }) => (
+                            {[
+                                { id: 'translation', label: 'Language Options' },
+                                { id: 'search', label: 'Recommended Readings' },
+                                { id: 'nav', label: 'Browse Books' }
+                            ].map(({ id, label }) => (
                                 <button
                                     key={id}
                                     onClick={() => setDropdownMode(id)}
-                                    className={`pb-2 text-sm font-medium border-b-2 transition-colors -mb-px
-                    ${dropdownMode === id ? 'text-gray-900 border-gray-900' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
+                                    className={`pb-2 text-sm font-medium border-b-1 transition-colors -mb-px cursor-pointer
+                    ${dropdownMode === id ? 'text-gray-700 border-gray-200' : 'text-gray-300 border-transparent hover:text-gray-400'}`}
                                 >
                                     {label}
                                 </button>
                             ))}
                         </div>
 
+                        {dropdownMode === 'translation' && (
+                            <>
+
+                                <DropdownToggleButton onToggle={onToggleInterlinear} isActive={showInterlinear} title="Show Original Language" />
+
+                                <div className="border-t border-gray-200 my-4" />
+
+                                <VersionSelector activeVersionIds={activeVersionIds} onToggle={onToggleVersion} />
+                            </>
+                        )}
                         {dropdownMode === 'search' && (
-                            <AutocompleteList query={query} onSelect={s => handleSearchSubmit(s.query)} />
+                            <AutocompleteList
+                                query={query}
+                                onSelect={s => handleSearchSubmit(s.query)}
+                                onLoadAll={rawQuery => { onSearch(rawQuery); onClose() }}
+                            />
                         )}
                         {dropdownMode === 'nav' && !navBook && (
                             <BookGrid selectedBook={selectedBook} onSelectBook={handleSelectBook} />
@@ -122,28 +159,7 @@ export default function PassageDropdown({
                             />
                         )}
 
-                        <div className="mt-4 pt-4 border-t border-gray-100 space-y-4">
-                            <VersionSelector
-                                activeVersionIds={activeVersionIds}
-                                onToggle={onToggleVersion}
-                            />
 
-                            {/* Interlinear toggle */}
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <div className="text-sm font-medium text-gray-700">Interlinear</div>
-                                    <div className="text-xs text-gray-400">Show original language below each verse</div>
-                                </div>
-                                <button
-                                    onClick={onToggleInterlinear}
-                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200
-                    ${showInterlinear ? 'bg-gray-900' : 'bg-gray-200'}`}
-                                >
-                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200
-                    ${showInterlinear ? 'translate-x-6' : 'translate-x-1'}`} />
-                                </button>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>

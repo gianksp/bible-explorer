@@ -279,3 +279,65 @@ function verseIdToResult(id, snippet, matchedTerms) {
         versionId: DEFAULT_VERSION.versionId,
     }
 }
+
+// Add this function to the bottom of apiClient.js
+
+// ── Daily Readings ────────────────────────────────────────────────────────────
+// Fetches today's Catholic Mass readings from the free USCCB-based API.
+// Returns suggestions ready for AutocompleteList.
+
+function readingToQuery(ref) {
+    // Strip trailing letter qualifiers like "18b" → "18"
+    return ref.replace(/([0-9])[a-z](\s|$)/gi, '$1$2').trim()
+}
+
+export async function fetchDailyReadings() {
+    const today = new Date()
+    const month = String(today.getMonth() + 1).padStart(2, '0')
+    const day = String(today.getDate()).padStart(2, '0')
+    const year = today.getFullYear()
+    const url = `https://cpbjr.github.io/catholic-readings-api/readings/${year}/${month}-${day}.json`
+
+    const res = await fetch(url)
+    if (!res.ok) throw new Error(`Daily readings not available for ${year}-${month}-${day}`)
+    const data = await res.json()
+
+    if (!data?.readings) throw new Error('No readings data')
+
+    const suggestions = []
+    const { firstReading, psalm, secondReading, gospel } = data.readings
+
+    if (firstReading) suggestions.push({
+        label: `First Reading · ${firstReading}`,
+        query: readingToQuery(firstReading),
+        type: 'daily',
+        group: "Today's Mass",
+    })
+
+    if (psalm) suggestions.push({
+        label: `Psalm · ${psalm.split(',')[0]}`,
+        query: readingToQuery(psalm.split(',')[0]),
+        type: 'daily',
+        group: "Today's Mass",
+    })
+
+    if (secondReading) suggestions.push({
+        label: `Second Reading · ${secondReading}`,
+        query: readingToQuery(secondReading),
+        type: 'daily',
+        group: "Today's Mass",
+    })
+
+    if (gospel) suggestions.push({
+        label: `Gospel · ${gospel}`,
+        query: readingToQuery(gospel),
+        type: 'daily',
+        group: "Today's Mass",
+    })
+
+    return {
+        season: data.season ?? '',
+        celebration: data.celebration?.name ?? null,
+        suggestions,
+    }
+}

@@ -1,4 +1,4 @@
-import { CHAPTER_COUNTS } from '../BookNav.jsx'
+import { CHAPTER_COUNTS } from './BookNav.jsx'
 
 // Props:
 //   book            — string
@@ -25,7 +25,7 @@ export default function ChapterGrid({ book, selectedChapter, onSelectChapter, on
                         key={chapter}
                         onClick={() => onSelectChapter(chapter)}
                         className={`
-              py-2 rounded-lg text-sm font-medium transition-colors
+              py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer
               ${selectedChapter === chapter
                                 ? 'bg-gray-900 text-white'
                                 : 'text-gray-700 hover:bg-gray-100'}

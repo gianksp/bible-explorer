@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect, useRef } from 'react'
-import WordGlossCard from './WordGlossCard.jsx'
 import { VerseNum } from './VerseNum.jsx'
+import { EnglishText } from './EnglishText.jsx'
+import { InterlinearWord } from './InterlinearWord.jsx'
 
 const ORIGINAL_VERSION_IDS = ['GNT', 'WLC', 'LXX']
 
@@ -70,7 +71,7 @@ export default function PassageView({
                         className={`
               mb-1 transition-colors duration-150 rounded-lg
               ${isHighlighted ? 'bg-amber-50 -mx-2 px-2 py-1' : ''}
-              ${verseHasHoveredWord && !isHighlighted ? 'bg-blue-50 -mx-2 px-2 py-1' : ''}
+              ${verseHasHoveredWord && !isHighlighted ? 'bg-blue-50' : ''}
             `}
                     >
                         {/* English translations */}
@@ -121,83 +122,5 @@ export default function PassageView({
                 )
             })}
         </div>
-    )
-}
-
-function InterlinearWord({ word, isHighlighted, onHoverStart, onHoverEnd, pageOccurrences }) {
-    const [showGloss, setShowGloss] = useState(false)
-    const wrapperRef = useRef(null)
-    const isActive = isHighlighted || showGloss
-
-    function handleMouseEnter() { onHoverStart(word.strongsNumber); setShowGloss(true) }
-    function handleMouseLeave(e) {
-        if (wrapperRef.current?.contains(e.relatedTarget)) return
-        onHoverEnd(); setShowGloss(false)
-    }
-    function handleClick(e) {
-        e.stopPropagation()
-        const next = !showGloss
-        setShowGloss(next)
-        next ? onHoverStart(word.strongsNumber) : onHoverEnd()
-    }
-
-    return (
-        <div
-            ref={wrapperRef}
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
-            onClick={handleClick}
-            className={`
-        relative flex flex-col items-center text-center cursor-pointer
-        px-2 py-1.5 rounded-lg transition-colors duration-100 min-w-[40px]
-        ${isActive ? 'bg-blue-50' : 'hover:bg-gray-50'}
-      `}
-        >
-            <span className={`text-[10px] font-medium mb-0.5 ${isActive ? 'text-blue-500' : 'text-gray-400'}`}>
-                {word.strongsNumber}
-            </span>
-            <span className={`text-[10px] italic mb-1 ${isActive ? 'text-blue-400' : 'text-gray-400'}`}>
-                {word.transliteration || '—'}
-            </span>
-            <span className={`font-serif text-[18px] leading-tight mb-1 tracking-wide ${isActive ? 'text-blue-700' : 'text-gray-700'}`}>
-                {word.surface}
-            </span>
-            <span className={`text-[11px] font-medium mb-0.5 ${isActive ? 'text-blue-600' : 'text-gray-600'}`}>
-                {word.englishGloss || '—'}
-            </span>
-            <span className={`text-[9px] font-mono ${isActive ? 'text-blue-400' : 'text-gray-400'}`}>
-                {word.morphology}
-            </span>
-
-            {showGloss && (
-                <WordGlossCard
-                    word={word}
-                    pageOccurrences={pageOccurrences}
-                    onClose={() => { setShowGloss(false); onHoverEnd() }}
-                />
-            )}
-        </div>
-    )
-}
-
-function EnglishText({ text, highlightTerms }) {
-    if (!text) return null
-    if (!highlightTerms?.length) return <>{text}</>
-
-    const escapedTerms = highlightTerms.map(t =>
-        t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    )
-    const pattern = new RegExp(`(${escapedTerms.join('|')})`, 'gi')
-    const parts = text.split(pattern)
-
-    return (
-        <>
-            {parts.map((part, i) => {
-                const isMatch = highlightTerms.some(t => part.toLowerCase() === t.toLowerCase())
-                return isMatch
-                    ? <mark key={i} className="bg-amber-200 text-amber-900 rounded-sm px-0.5">{part}</mark>
-                    : part
-            })}
-        </>
     )
 }

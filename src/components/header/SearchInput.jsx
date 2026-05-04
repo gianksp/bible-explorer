@@ -43,7 +43,7 @@ export default function SearchInput({ onSearch, onQueryChange, autoFocus = false
                 onKeyDown={handleKeyDown}
                 placeholder="Enter passage, keyword or topic"
                 className="
-          w-full px-4 py-3 pr-10 text-md bg-gray-50 rounded-lg
+          w-full px-4 py-3 pr-10 text-sm bg-gray-50 rounded-lg
           border border-gray-500 placeholder-gray-500
           focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-400
           transition-all
