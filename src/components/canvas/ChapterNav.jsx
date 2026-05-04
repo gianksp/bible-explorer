@@ -1,4 +1,4 @@
-import { CHAPTER_COUNTS } from '../BookNav.jsx'
+import { CHAPTER_COUNTS } from '../header/BookNav'
 
 // Props:
 //   book            — string
