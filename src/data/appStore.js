@@ -3,7 +3,7 @@
 // Single source of truth for all app-wide data.
 // No hardcoded book lists or version configs anywhere else.
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8787'
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'https://bible-explorer-api.gianksp.workers.dev' //'http://localhost:8787'
 
 let cache = null
 

@@ -7,8 +7,8 @@
 //   const bookId = nameToId['Romans']  // → 'Rom'
 //   const isOT   = otBookIds.has('Gen') // → true
 
-const API_BASE_URL = 'http://localhost:8787'
-// const API_BASE_URL = 'https://bible-explorer-api.your-subdomain.workers.dev'
+// const API_BASE_URL = 'http://localhost:8787'
+const API_BASE_URL = 'https://bible-explorer-api.gianksp.workers.dev'
 
 let cache = null
 
