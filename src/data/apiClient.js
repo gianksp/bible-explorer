@@ -1,5 +1,5 @@
 // apiClient.js
-// Thin client — all query parsing is done by the API.
+// Thin client — all query parsing and routing is done by the API.
 // Just pass raw queries through and map responses to app shapes.
 
 import { bibleApi } from './bibleApi.js'
@@ -11,84 +11,46 @@ function bookIdToName(bookId, idToName) {
     return idToName?.[bookId] ?? bookId
 }
 
-function mapPassageResults(results, idToName, originalVersion, wordsByVerse = {}) {
+function mapVerseResults(results, idToName, defaultVersionId, interlinearByVerse = {}, originalVersions = []) {
     const verseMap = {}
 
-    for (const result of results) {
-        Object.entries(result.bibles ?? {}).forEach(([bibleId, verses]) => {
-            for (const v of verses) {
-                const verseId = `${v.book_id}.${v.chapter}.${v.verse}`
-                if (!verseMap[verseId]) {
-                    verseMap[verseId] = {
-                        verseId,
-                        book: bookIdToName(v.book_id, idToName),
-                        chapter: v.chapter,
-                        verse: v.verse,
-                        versions: {},
-                    }
-                }
-                if (v.text) verseMap[verseId].versions[bibleId.toUpperCase()] = { text: v.text }
-            }
-        })
-    }
-
-    return Object.values(verseMap).map(v => {
-        const verseWords = wordsByVerse[v.verseId] ?? []
-
-        if (verseWords.length && originalVersion) {
-            const mappedWords = verseWords.map(w => ({
-                wordId: w.word_id,
-                surface: w.surface,
-                transliteration: w.transliteration,
-                strongsNumber: w.strongs_number,
-                morphology: w.morphology,
-                englishGloss: w.english_gloss,
-                definition: w.definition,
-            }))
-            v.versions[originalVersion.versionId] = {
-                text: mappedWords.map(w => w.surface).join(' '),
-                words: mappedWords,
+    for (const v of results) {
+        const verseId = `${v.book_id}.${v.chapter}.${v.verse}`
+        if (!verseMap[verseId]) {
+            verseMap[verseId] = {
+                verseId,
+                book: bookIdToName(v.book_id, idToName),
+                chapter: v.chapter,
+                verse: v.verse,
+                snippet: v.text ?? '',
+                versionId: (v.bible_id ?? defaultVersionId).toUpperCase(),
+                versions: {},
             }
         }
-
-        return { verseId: v.verseId, book: v.book, chapter: v.chapter, verse: v.verse, versions: v.versions }
-    })
-}
-
-function groupWordsByVerse(interlinearResults) {
-    const map = {}
-    for (const result of interlinearResults ?? []) {
-        for (const v of result.verses ?? []) {
-            const verseId = `${v.book_id}.${v.chapter}.${v.verse ?? 1}`
-            map[verseId] = v.words ?? []
-        }
+        const vid = (v.bible_id ?? defaultVersionId).toUpperCase()
+        verseMap[verseId].versions[vid] = { text: v.text ?? '' }
+        if (!verseMap[verseId].snippet) verseMap[verseId].snippet = v.text ?? ''
     }
-    return map
-}
 
-function mapSearchResults(results, idToName, defaultVersionId, matchedTerms = []) {
-    const verseMap = {}
-
-    for (const result of results) {
-        Object.entries(result.bibles ?? {}).forEach(([bibleId, verses]) => {
-            for (const v of verses) {
-                const verseId = `${v.book_id}.${v.chapter}.${v.verse}`
-                if (!verseMap[verseId]) {
-                    verseMap[verseId] = {
-                        verseId,
-                        book: bookIdToName(v.book_id, idToName),
-                        chapter: v.chapter,
-                        verse: v.verse,
-                        snippet: v.text ?? '',
-                        matchedTerms,
-                        versionId: bibleId.toUpperCase(),
-                        versions: {},
-                    }
-                }
-                verseMap[verseId].versions[bibleId.toUpperCase()] = { text: v.text ?? '' }
-                if (!verseMap[verseId].snippet) verseMap[verseId].snippet = v.text ?? ''
-            }
-        })
+    // Attach interlinear words when present
+    for (const [verseId, entry] of Object.entries(interlinearByVerse)) {
+        if (!verseMap[verseId]) continue
+        const isOT = /^(gen|exo|lev|num|deu|jos|jdg|rut|[12]sa|[12]ki|[12]ch|ezr|neh|est|job|psa|pro|ecc|sng|isa|jer|lam|eze|dan|hos|joe|amo|oba|jon|mic|nah|hab|zep|hag|zec|mal)/i.test(verseId)
+        const origV = originalVersions.find(o => o.testament === (isOT ? 'OT' : 'NT'))
+        if (!origV) continue
+        const mappedWords = (entry.words ?? []).map(w => ({
+            wordId: w.word_id,
+            surface: w.surface,
+            transliteration: w.transliteration,
+            strongsNumber: w.strongs_number,
+            morphology: w.morphology,
+            englishGloss: w.english_gloss,
+            definition: w.definition,
+        }))
+        verseMap[verseId].versions[origV.versionId] = {
+            text: mappedWords.map(w => w.surface).join(' '),
+            words: mappedWords,
+        }
     }
 
     return Object.values(verseMap)
@@ -108,58 +70,13 @@ export async function fetchVersions() {
     return versions
 }
 
-// ── Passage ───────────────────────────────────────────────────────────────────
+// ── Unified Query ─────────────────────────────────────────────────────────────
 
-export async function fetchPassage({
+export async function fetchQuery({
     rawQuery,
-    book,
-    chapter,
-    verseStart = null,
-    verseEnd = null,
     activeVersionIds = [],
     showInterlinear = false,
 }) {
-    const { idToName, otBookIds } = await getBooks()
-    const { originalVersions, defaultVersion } = await getVersions()
-
-    const originalIds = new Set(originalVersions.map(v => v.versionId))
-    const shouldInterlinear = showInterlinear || activeVersionIds.some(id => originalIds.has(id))
-    const bibles = getBibles(activeVersionIds, originalIds, defaultVersion.bibleId)
-
-    // Use rawQuery if provided, otherwise build ref from parts
-    let ref = rawQuery
-    if (!ref && book && chapter) {
-        ref = `${book} ${chapter}`
-        if (verseStart && verseEnd) ref += `:${verseStart}-${verseEnd}`
-        else if (verseStart) ref += `:${verseStart}`
-    }
-
-    if (!ref) return []
-
-    const bookIdLower = (book ?? '').toLowerCase().replace(/\s+/g, '')
-    const isOT = otBookIds.has(bookIdLower)
-    const originalVersion = originalVersions.find(o => o.testament === (isOT ? 'OT' : 'NT'))
-
-    const [passageData, interlinearData] = await Promise.all([
-        bibleApi.getVerses(ref, bibles),
-        shouldInterlinear
-            ? bibleApi.getInterlinear(ref).catch(() => null)
-            : Promise.resolve(null),
-    ])
-
-    const wordsByVerse = groupWordsByVerse(interlinearData?.results)
-
-    return mapPassageResults(
-        passageData?.results ?? [],
-        idToName,
-        shouldInterlinear ? originalVersion : null,
-        wordsByVerse
-    )
-}
-
-// ── Search ────────────────────────────────────────────────────────────────────
-
-export async function fetchSearch({ rawQuery, activeVersionIds = [], showInterlinear = false }) {
     if (!rawQuery?.trim()) return []
 
     const { idToName } = await getBooks()
@@ -168,58 +85,31 @@ export async function fetchSearch({ rawQuery, activeVersionIds = [], showInterli
     const originalIds = new Set(originalVersions.map(v => v.versionId))
     const bibles = getBibles(activeVersionIds, originalIds, defaultVersion.bibleId)
 
-    let data
-    try {
-        data = await bibleApi.getVerses(rawQuery, bibles)
-        if (!data?.results?.length) {
-            data = await bibleApi.searchVerses(rawQuery, bibles)
-        }
-    } catch {
-        data = await bibleApi.searchVerses(rawQuery, bibles)
+    const data = await bibleApi.query(rawQuery, bibles, showInterlinear)
+
+    return mapVerseResults(
+        data?.results ?? [],
+        idToName,
+        defaultVersion.versionId,
+        data?.interlinear ?? {},
+        originalVersions,
+    )
+}
+
+// ── Legacy exports ────────────────────────────────────────────────────────────
+
+export async function fetchPassage({ rawQuery, book, chapter, verseStart, verseEnd, activeVersionIds, showInterlinear }) {
+    let ref = rawQuery
+    if (!ref && book && chapter) {
+        ref = `${book} ${chapter}`
+        if (verseStart && verseEnd) ref += `:${verseStart}-${verseEnd}`
+        else if (verseStart) ref += `:${verseStart}`
     }
+    return fetchQuery({ rawQuery: ref, activeVersionIds, showInterlinear })
+}
 
-    const terms = rawQuery
-        .replace(/["]/g, '')
-        .split(/\s+/)
-        .filter(t => !['OR', 'AND'].includes(t) && !t.startsWith('-') && t.length > 0)
-        .map(t => t.toLowerCase())
-
-    const results = mapSearchResults(data?.results ?? [], idToName, defaultVersion.versionId, terms)
-
-    // Fetch interlinear for all unique references when enabled
-    if (showInterlinear && results.length) {
-        try {
-            const interlinearData = await bibleApi.getInterlinear(rawQuery).catch(() => null)
-            if (interlinearData?.results) {
-                const wordsByVerse = groupWordsByVerse(interlinearData.results)
-                const { originalVersions: origVs } = await getVersions()
-                results.forEach(r => {
-                    const words = wordsByVerse[r.verseId]
-                    if (!words?.length) return
-                    // Determine OT/NT from book
-                    const isOT = r.verseId.split('.')[0].match(/genesis|exodus|leviticus|numbers|deuteronomy|joshua|judges|ruth|samuel|kings|chronicles|ezra|nehemiah|esther|job|psalms|proverbs|ecclesiastes|song|isaiah|jeremiah|lamentations|ezekiel|daniel|hosea|joel|amos|obadiah|jonah|micah|nahum|habakkuk|zephaniah|haggai|zechariah|malachi/i)
-                    const origV = origVs.find(o => o.testament === (isOT ? 'OT' : 'NT'))
-                    if (!origV) return
-                    const mappedWords = words.map(w => ({
-                        wordId: w.word_id,
-                        surface: w.surface,
-                        transliteration: w.transliteration,
-                        strongsNumber: w.strongs_number,
-                        morphology: w.morphology,
-                        englishGloss: w.english_gloss,
-                        definition: w.definition,
-                    }))
-                    if (!r.versions) r.versions = {}
-                    r.versions[origV.versionId] = {
-                        text: mappedWords.map(w => w.surface).join(' '),
-                        words: mappedWords,
-                    }
-                })
-            }
-        } catch { }
-    }
-
-    return results
+export async function fetchSearch({ rawQuery, activeVersionIds, showInterlinear }) {
+    return fetchQuery({ rawQuery, activeVersionIds, showInterlinear })
 }
 
 // ── Daily Readings ────────────────────────────────────────────────────────────
@@ -286,7 +176,7 @@ export async function fetchStrongs(strongsNumber) {
 
 export async function fetchStrongsOccurrences(strongsNumber, activeVersionIds = []) {
     if (!strongsNumber) return []
-    return fetchSearch({
+    return fetchQuery({
         rawQuery: strongsNumber,
         activeVersionIds: activeVersionIds.length ? activeVersionIds : ['KJV'],
     })

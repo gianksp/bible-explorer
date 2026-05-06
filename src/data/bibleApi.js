@@ -42,23 +42,26 @@ export function createBibleApi(baseUrl = DEFAULT_BASE_URL) {
         },
 
         /**
-         * Resolve Bible references to verses.
-         * @param {string} q - Reference query e.g. 'john 3:16-18; gen 1:1'
+         * Unified query — routes to passage or keyword search automatically.
+         * The API detects the query type and returns a consistent flat results array.
+         * @param {string} q - Any query: 'john 3:16', 'sons of god', '"in the beginning"'
          * @param {string} [bibles='all'] - Comma-separated Bible IDs or 'all'
-         * @returns {Promise<import('./types').VersesResponse>}
+         * @param {boolean} [interlinear=false] - Include interlinear word data in response
+         * @returns {Promise<{
+         *   query: string,
+         *   type: 'passage'|'keyword',
+         *   bibles: string[],
+         *   count: number,
+         *   results: Verse[],
+         *   interlinear?: Record<string, InterlinearVerse>
+         * }>}
          */
-        getVerses(q, bibles = 'all') {
-            return request(baseUrl, '/verses', { q, bibles });
-        },
-
-        /**
-         * Full-text search across Bible versions.
-         * @param {string} q - Keyword or quoted phrase e.g. '"sons of god"'
-         * @param {string} [bibles='all'] - Comma-separated Bible IDs or 'all'
-         * @returns {Promise<import('./types').SearchResponse>}
-         */
-        searchVerses(q, bibles = 'all') {
-            return request(baseUrl, '/search', { q, bibles });
+        query(q, bibles = 'all', interlinear = false) {
+            return request(baseUrl, '/search', {
+                q,
+                bibles,
+                ...(interlinear && { interlinear: 'true' }),
+            });
         },
 
         /**
@@ -71,10 +74,24 @@ export function createBibleApi(baseUrl = DEFAULT_BASE_URL) {
             return request(baseUrl, '/daily', { bibles, date });
         },
 
+        // ── Legacy methods — kept for backwards compatibility ──────────────────
+
         /**
-         * Get interlinear word data for a reference.
-         * @param {string} q - Reference query e.g. 'john 1:1-3; gen 1:1'
-         * @returns {Promise<import('./types').InterlinearResponse>}
+         * @deprecated Use query() instead.
+         */
+        getVerses(q, bibles = 'all') {
+            return request(baseUrl, '/verses', { q, bibles });
+        },
+
+        /**
+         * @deprecated Use query() instead.
+         */
+        searchVerses(q, bibles = 'all') {
+            return request(baseUrl, '/search', { q, bibles });
+        },
+
+        /**
+         * @deprecated Interlinear is now returned by query() when interlinear=true.
          */
         getInterlinear(q) {
             return request(baseUrl, '/interlinear', { q });
