@@ -7,9 +7,9 @@
 //   const bookId = nameToId['Romans']  // → 'Rom'
 //   const isOT   = otBookIds.has('Gen') // → true
 
-// const API_BASE_URL = 'http://localhost:8787'
-const API_BASE_URL = 'https://bible-explorer-api.gianksp.workers.dev'
-
+const API_BASE_URL = import.meta.env.VITE_API_URL
+console.log(API_BASE_URL)
+console.log("????")
 let cache = null
 
 export async function getBooks() {

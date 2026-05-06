@@ -44,12 +44,7 @@ export default function PassageDropdown({
 
     function handleSearchSubmit(rawQuery) {
         if (!rawQuery.trim()) return
-        const parsed = parseSearch(rawQuery)
-        if (parsed?.type === 'passage' && !parsed.verseStart) {
-            onSelectPassage({ book: parsed.book, chapter: parsed.chapter ?? 1 })
-        } else {
-            onSearch(rawQuery)
-        }
+        onSearch(rawQuery)
         onClose()
     }
 
@@ -148,7 +143,11 @@ export default function PassageDropdown({
                             />
                         )}
                         {dropdownMode === 'nav' && !navBook && (
-                            <BookGrid selectedBook={selectedBook} onSelectBook={handleSelectBook} />
+                            <BookGrid
+                                selectedBook={selectedBook}
+                                activeVersionIds={activeVersionIds}
+                                onSelectBook={handleSelectBook}
+                            />
                         )}
                         {dropdownMode === 'nav' && navBook && (
                             <ChapterGrid

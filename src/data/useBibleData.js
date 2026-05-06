@@ -1,8 +1,3 @@
-// useBibleData.js
-// React hooks wrapping apiClient + appStore.
-// Every hook returns { data, isLoading, error }
-// Components never fetch directly.
-
 import { useState, useEffect, useCallback } from 'react'
 import {
     fetchVersions,
@@ -13,8 +8,6 @@ import {
     fetchDailyReadings,
 } from './apiClient.js'
 import { getAppData } from './appStore.js'
-
-// ── Generic fetch hook ────────────────────────────────────────────────────────
 
 function useFetch(fetchFn, deps) {
     const [data, setData] = useState(null)
@@ -47,41 +40,32 @@ function useFetch(fetchFn, deps) {
     return { data, isLoading, error }
 }
 
-// ── useAppData ────────────────────────────────────────────────────────────────
-// Returns all books + versions in one call.
-// Fetches once, cached in appStore — safe to call from multiple components.
-
 export function useAppData() {
     return useFetch(() => getAppData(), [])
 }
-
-// ── useVersions ───────────────────────────────────────────────────────────────
 
 export function useVersions() {
     return useFetch(() => fetchVersions(), [])
 }
 
-// ── usePassage ────────────────────────────────────────────────────────────────
-
-export function usePassage({ book, chapter, verseStart = null, verseEnd = null, activeVersionIds = [] }) {
-    const shouldFetch = Boolean(book && chapter)
+// Accepts either rawQuery or { book, chapter, verseStart, verseEnd }
+export function usePassage({ rawQuery, book, chapter, verseStart = null, verseEnd = null, activeVersionIds = [], showInterlinear = false }) {
+    const shouldFetch = Boolean(rawQuery?.trim() || (book && chapter))
     return useFetch(
-        shouldFetch ? () => fetchPassage({ book, chapter, verseStart, verseEnd, activeVersionIds }) : null,
-        [book, chapter, verseStart, verseEnd, activeVersionIds]
+        shouldFetch
+            ? () => fetchPassage({ rawQuery, book, chapter, verseStart, verseEnd, activeVersionIds, showInterlinear })
+            : null,
+        [rawQuery, book, chapter, verseStart, verseEnd, activeVersionIds, showInterlinear]
     )
 }
 
-// ── useSearch ─────────────────────────────────────────────────────────────────
-
-export function useSearch({ rawQuery, activeVersionIds = [] }) {
+export function useSearch({ rawQuery, activeVersionIds = [], showInterlinear = false }) {
     const shouldFetch = Boolean(rawQuery?.trim())
     return useFetch(
-        shouldFetch ? () => fetchSearch({ rawQuery, activeVersionIds }) : null,
-        [rawQuery, activeVersionIds]
+        shouldFetch ? () => fetchSearch({ rawQuery, activeVersionIds, showInterlinear }) : null,
+        [rawQuery, activeVersionIds, showInterlinear]
     )
 }
-
-// ── useStrongs ────────────────────────────────────────────────────────────────
 
 export function useStrongs(strongsNumber) {
     return useFetch(
@@ -90,8 +74,6 @@ export function useStrongs(strongsNumber) {
     )
 }
 
-// ── useStrongsOccurrences ─────────────────────────────────────────────────────
-
 export function useStrongsOccurrences(strongsNumber, activeVersionIds = []) {
     return useFetch(
         strongsNumber ? () => fetchStrongsOccurrences(strongsNumber, activeVersionIds) : null,
@@ -99,13 +81,9 @@ export function useStrongsOccurrences(strongsNumber, activeVersionIds = []) {
     )
 }
 
-// ── useDailyReadings ──────────────────────────────────────────────────────────
-
-export function useDailyReadings() {
-    return useFetch(() => fetchDailyReadings(), [])
+export function useDailyReadings(activeVersionIds = []) {
+    return useFetch(() => fetchDailyReadings(activeVersionIds), [activeVersionIds])
 }
-
-// ── useLazyFetch ──────────────────────────────────────────────────────────────
 
 export function useLazyFetch() {
     const [data, setData] = useState(null)

@@ -126,7 +126,8 @@ function buildVerseObjects(verses) {
     book: r.book,
     chapter: r.chapter,
     verse: r.verse,
-    versions: {
+    // Use pre-built versions if available, otherwise build from snippet
+    versions: r.versions ?? {
       [r.versionId]: { text: r.snippet },
     },
   }))

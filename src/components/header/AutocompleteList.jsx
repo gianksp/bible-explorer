@@ -1,7 +1,14 @@
 import { useDailyReadings } from '../../data/useBibleData.js'
+import PassageView from '../canvas/PassageView.jsx'
 
-export default function AutocompleteList({ query, onSelect, onLoadAll }) {
-    const { data: daily, isLoading } = useDailyReadings()
+// Props:
+//   query            — string
+//   activeVersionIds — string[]
+//   onSelect         — fn(suggestion)
+//   onLoadAll        — fn(rawQuery)
+
+export default function AutocompleteList({ query, activeVersionIds = [], onSelect, onLoadAll }) {
+    const { data: daily, isLoading } = useDailyReadings(activeVersionIds)
 
     const massReadings = daily?.suggestions ?? []
 
@@ -21,7 +28,6 @@ export default function AutocompleteList({ query, onSelect, onLoadAll }) {
 
     return (
         <div>
-            {/* Header */}
             <div className="flex items-center justify-between mb-4">
                 <span className="text-sm font-medium text-gray-400">
                     Today's Mass Readings
@@ -36,29 +42,16 @@ export default function AutocompleteList({ query, onSelect, onLoadAll }) {
                 )}
             </div>
 
-            {/* List */}
             {filtered.length > 0 ? (
-                <div className="rounded-xl overflow-hidden border border-gray-100">
-                    {filtered.map((reading, i) => {
-                        const parts = reading.label.split(' · ')
-                        const typePart = parts[0]
-                        const refPart = parts[1] ?? reading.query
-
-                        return (
-                            <button
-                                key={i}
-                                onClick={() => onSelect(reading)}
-                                className="cursor-pointer w-full flex items-center justify-between px-3 py-2.5 hover:bg-gray-50 text-left transition-colors border-b border-gray-100 last:border-0 group"
-                            >
-                                <div className="flex items-center gap-3 min-w-0">
-                                    <span className="text-xs text-white bg-gray-800 px-2 py-1 rounded shrink-0">
-                                        {typePart}
-                                    </span>
-                                    <span className="text-sm text-gray-600 truncate">{refPart}</span>
-                                </div>
-                            </button>
-                        )
-                    })}
+                <div className="space-y-3">
+                    {filtered.map((reading, i) => (
+                        <ReadingRow
+                            key={i}
+                            reading={reading}
+                            activeVersionIds={activeVersionIds}
+                            onSelect={onSelect}
+                        />
+                    ))}
                 </div>
             ) : !isLoading ? (
                 <div className="py-4 text-center text-sm text-gray-400">
@@ -68,3 +61,50 @@ export default function AutocompleteList({ query, onSelect, onLoadAll }) {
         </div>
     )
 }
+
+function ReadingRow({ reading, activeVersionIds, onSelect }) {
+    const [expanded, setExpanded] = useState(false)
+    const parts = reading.label.split(' · ')
+    const typePart = parts[0]
+    const refPart = parts[1] ?? reading.query
+    const hasVerses = reading.verses?.length > 0
+
+    return (
+        <div className="rounded-xl border border-gray-100 overflow-hidden">
+            {/* Header row */}
+            <button
+                onClick={() => onSelect(reading)}
+                className="cursor-pointer w-full flex items-center justify-between px-3 py-2.5 hover:bg-gray-50 text-left transition-colors"
+            >
+                <div className="flex items-center gap-3 min-w-0">
+                    <span className="text-xs text-white bg-gray-800 px-2 py-1 rounded shrink-0">
+                        {typePart}
+                    </span>
+                    <span className="text-sm text-gray-600 truncate">{refPart}</span>
+                </div>
+                {hasVerses && (
+                    <button
+                        onClick={e => { e.stopPropagation(); setExpanded(prev => !prev) }}
+                        className="text-xs text-gray-400 hover:text-gray-700 ml-2 shrink-0 px-2 py-0.5 rounded hover:bg-gray-100 transition-colors"
+                    >
+                        {expanded ? 'Hide' : 'Preview'}
+                    </button>
+                )}
+            </button>
+
+            {/* Inline verse preview */}
+            {expanded && hasVerses && (
+                <div className="border-t border-gray-100 bg-gray-50 px-2 py-1 max-h-48 overflow-y-auto">
+                    <PassageView
+                        verses={reading.verses}
+                        versionIds={activeVersionIds.filter(id => !['GNT', 'WLC'].includes(id))}
+                        showInterlinear={false}
+                    />
+                </div>
+            )}
+        </div>
+    )
+}
+
+// Need useState import
+import { useState } from 'react'

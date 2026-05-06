@@ -18,12 +18,23 @@ function stripCantillation(text) {
         .trim()
 }
 
+// Props:
+//   verses          — verse objects
+//   versionIds      — string[]
+//   showInterlinear — bool
+//   highlightVerse  — number | null
+//   highlightTerms  — string[]
+//   variant         — 'default' | 'parallel'
+//     default  — stacked, one translation per line (main reader)
+//     parallel — side-by-side columns per translation (preview/compare)
+
 export default function PassageView({
     verses,
     versionIds = [],
     showInterlinear = false,
     highlightVerse = null,
     highlightTerms = [],
+    variant = 'default',
 }) {
     const [hoveredStrongsNumber, setHoveredStrongsNumber] = useState(null)
     const highlightRef = useRef(null)
@@ -54,6 +65,52 @@ export default function PassageView({
     const hasEnglish = englishIds.length > 0
     const originalOnly = !hasEnglish && showInterlinear
 
+    // ── Parallel variant — columns side by side ───────────────────────────────
+    if (variant === 'parallel' && isMulti) {
+        return (
+            <div className="px-2 py-2">
+                {/* Version header row */}
+                <div
+                    className="grid gap-3 mb-2"
+                    style={{ gridTemplateColumns: `repeat(${englishIds.length}, 1fr)` }}
+                >
+                    {englishIds.map(id => (
+                        <div key={id} className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
+                            {id}
+                        </div>
+                    ))}
+                </div>
+
+                {/* Verse rows */}
+                {verses.map(verse => {
+                    const { verseId, verse: verseNum, versions } = verse
+                    return (
+                        <div
+                            key={verseId}
+                            className="grid gap-3 mb-3 pb-3 border-b border-gray-100 last:border-0"
+                            style={{ gridTemplateColumns: `repeat(${englishIds.length}, 1fr)` }}
+                        >
+                            {englishIds.map((versionId, i) => {
+                                const text = versions[versionId]?.text ?? ''
+                                return (
+                                    <p key={versionId} className="text-[13px] leading-6 text-gray-700">
+                                        {i === 0 && (
+                                            <sup className="text-[10px] text-gray-400 mr-0.5 select-none font-normal">
+                                                {verseNum}
+                                            </sup>
+                                        )}
+                                        <EnglishText text={text} highlightTerms={highlightTerms} />
+                                    </p>
+                                )
+                            })}
+                        </div>
+                    )
+                })}
+            </div>
+        )
+    }
+
+    // ── Default variant — stacked ─────────────────────────────────────────────
     return (
         <div className="max-w-2xl mx-auto px-6 py-10">
             {verses.map(verse => {
@@ -74,7 +131,7 @@ export default function PassageView({
               ${verseHasHoveredWord && !isHighlighted ? 'bg-blue-50' : ''}
             `}
                     >
-                        {/* English translations */}
+                        {/* English translations — stacked */}
                         {hasEnglish && englishIds.map((versionId, i) => {
                             const text = versions[versionId]?.text ?? ''
                             if (!text) return null
@@ -99,13 +156,11 @@ export default function PassageView({
                                 dir={isHebrew ? 'rtl' : 'ltr'}
                                 className={`flex flex-wrap gap-x-1 gap-y-3 ${hasEnglish ? 'mt-2 mb-3 pt-2 border-t border-gray-100' : 'mt-1 mb-2'}`}
                             >
-                                {/* Verse number when no English translation shown */}
                                 {originalOnly && (
                                     <div className="w-full mb-1">
                                         <VerseNum verseNum={verseNum} />
                                     </div>
                                 )}
-
                                 {originalEntry[1].words.map(word => (
                                     <InterlinearWord
                                         key={word.wordId}
