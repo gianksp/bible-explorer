@@ -1,12 +1,12 @@
 {
-    "name": "Bible Explorer",
-    "short_name": "Bible",
+    "name": "Bible Reader",
+    "short_name": "Bible Reader",
     "description": "Read, search and study the Bible in original languages",
     "start_url": "/",
     "display": "standalone",
     "orientation": "portrait",
-    "background_color": "#ffffff",
-    "theme_color": "#ffffff",
+    "background_color": "#1c1c1c",
+    "theme_color": "#1c1c1c",
     "icons": [
         {
             "src": "/icons/icon-192.png",
